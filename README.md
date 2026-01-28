@@ -3,7 +3,8 @@
 **Safety-first GitOps operations for ArgoCD via the Model Context Protocol.**
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
+[![MCP](https://img.shields.io/badge/MCP-1.26%2B-green.svg)](https://modelcontextprotocol.io/)
 
 ## Overview
 
@@ -164,10 +165,10 @@ export ARGOCD_TOKEN=prod-token
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.11, 3.12, or 3.13
 - uv (recommended) or pip
 - Docker (for container builds)
-- Kind (for local Kubernetes testing)
+- Kind 0.31+ (for local Kubernetes testing)
 
 ### Setup
 
@@ -188,13 +189,31 @@ docker build -t argocd-mcp-server .
 
 ### Testing with Kind
 
+**Important**: Kubernetes 1.35+ requires cgroups v2. Check your cgroup version:
 ```bash
-# Create Kind cluster
-kind create cluster --name argocd-mcp-test
+docker info | grep "Cgroup Version"
+```
+
+- **Cgroup Version: 2** - Use Kubernetes 1.35 (default in Kind 0.31+)
+- **Cgroup Version: 1** - Use Kubernetes 1.34.x (WSL2 default, older Docker)
+
+```bash
+# Auto-detect cgroup version and create cluster
+./scripts/setup-test-cluster.sh
+
+# Or manually with specific version:
+# For cgroups v2 (recommended):
+kind create cluster --name argocd-mcp-test --image kindest/node:v1.35.0
+
+# For cgroups v1 (WSL2/older Docker):
+kind create cluster --name argocd-mcp-test --image kindest/node:v1.34.3
 
 # Install ArgoCD
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Wait for ArgoCD to be ready
+kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
 
 # Get ArgoCD admin password
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d

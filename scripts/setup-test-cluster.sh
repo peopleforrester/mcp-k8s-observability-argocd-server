@@ -4,13 +4,27 @@
 
 set -e
 
-CLUSTER_NAME="${CLUSTER_NAME:-argocd-test}"
+CLUSTER_NAME="${CLUSTER_NAME:-argocd-mcp-test}"
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-./kubeconfig}"
-K8S_VERSION="${K8S_VERSION:-v1.29.2}"
+
+# Auto-detect cgroup version and select appropriate Kubernetes version
+# K8s 1.35+ dropped cgroups v1 support
+CGROUP_VERSION=$(docker info 2>/dev/null | grep "Cgroup Version" | awk '{print $3}')
+if [ "$CGROUP_VERSION" = "2" ]; then
+    DEFAULT_K8S_VERSION="v1.35.0"
+else
+    # cgroups v1 - must use K8s 1.34.x or earlier
+    DEFAULT_K8S_VERSION="v1.34.3"
+    echo "WARNING: Detected cgroups v1. Using Kubernetes ${DEFAULT_K8S_VERSION}"
+    echo "         K8s 1.35+ requires cgroups v2. Consider upgrading Docker/WSL2."
+    echo ""
+fi
+K8S_VERSION="${K8S_VERSION:-$DEFAULT_K8S_VERSION}"
 
 echo "Setting up Kind cluster for ArgoCD MCP testing..."
 echo "Cluster name: $CLUSTER_NAME"
 echo "Kubernetes version: $K8S_VERSION"
+echo "Cgroup version: ${CGROUP_VERSION:-unknown}"
 echo ""
 
 # Check prerequisites
