@@ -1,0 +1,165 @@
+# ABOUTME: Project configuration for ArgoCD MCP Server
+# ABOUTME: Defines dependencies, build system, and tool configurations
+
+[project]
+name = "argocd-mcp-server"
+version = "0.1.0"
+description = "Safety-first ArgoCD MCP server with progressive disclosure, multi-cluster intelligence, and enterprise-grade observability"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+authors = [
+    { name = "Michael Rishi Forrester", email = "michael@peopleforrester.com" }
+]
+keywords = [
+    "argocd",
+    "mcp",
+    "kubernetes",
+    "gitops",
+    "observability",
+    "model-context-protocol"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "mcp>=1.0.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "structlog>=24.0.0",
+    "tenacity>=8.0.0",
+    "prometheus-client>=0.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.12.0",
+    "respx>=0.21.0",
+    "ruff>=0.3.0",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+]
+kubernetes = [
+    "kubernetes>=29.0.0",
+]
+
+[project.scripts]
+argocd-mcp = "argocd_mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/peopleforrester/mcp-k8s-observability-argocd-server"
+Documentation = "https://github.com/peopleforrester/mcp-k8s-observability-argocd-server#readme"
+Repository = "https://github.com/peopleforrester/mcp-k8s-observability-argocd-server"
+Issues = "https://github.com/peopleforrester/mcp-k8s-observability-argocd-server/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/argocd_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "-ra",
+]
+markers = [
+    "unit: Unit tests (fast, no external dependencies)",
+    "integration: Integration tests (require ArgoCD API)",
+    "e2e: End-to-end tests (require full cluster)",
+    "slow: Slow tests that should be run less frequently",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src/argocd_mcp"]
+branch = true
+omit = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+fail_under = 80
+show_missing = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "PTH",    # flake8-use-pathlib
+    "ERA",    # eradicate (commented-out code)
+    "PL",     # Pylint
+    "RUF",    # Ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "PLR0913", # too many arguments
+    "PLR2004", # magic value comparison
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["argocd_mcp"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG", "PLR2004"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["kubernetes.*", "respx.*"]
+ignore_missing_imports = true

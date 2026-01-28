@@ -1,0 +1,8 @@
+# ABOUTME: Kind cluster configuration for local ArgoCD testing
+# ABOUTME: Minimal single-node cluster with Kubernetes 1.29
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: argocd-test
+nodes:
+  - role: control-plane
