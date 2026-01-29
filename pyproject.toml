@@ -143,7 +143,8 @@ ignore = [
 known-first-party = ["argocd_mcp"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG", "PLR2004"]
+"tests/*" = ["ARG", "PLR2004", "PLC0415", "SIM117", "E402", "PLW0603", "PLW0602", "PLW1509", "PLW1510", "SIM105"]
+"src/argocd_mcp/server.py" = ["PLW0602", "PLW0603", "PLR0912", "PLR0915"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -164,3 +165,7 @@ disallow_untyped_defs = false
 [[tool.mypy.overrides]]
 module = ["kubernetes.*", "respx.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["mcp.*"]
+ignore_errors = true

@@ -43,10 +43,15 @@ class MockFastMCP:
 
 class MockContext:
     """Mock MCP Context class."""
-    def __init__(self, request_id="test-request-123"):
+
+    def __init__(self, request_id: str = "test-request-123") -> None:
         self.request_id = request_id
 
-    async def report_progress(self, *args, **kwargs):
+    def __class_getitem__(cls, params: Any) -> type:
+        """Support generic subscripting like Context[Any, Any]."""
+        return cls
+
+    async def report_progress(self, *args: Any, **kwargs: Any) -> None:
         pass
 
 
@@ -60,9 +65,9 @@ sys.modules["mcp.server"] = MagicMock()
 sys.modules["mcp.server.fastmcp"] = mock_fastmcp_module
 
 from argocd_mcp.config import SecuritySettings, ServerSettings
-from argocd_mcp.utils.client import Application, ArgocdClient, ArgocdError
+from argocd_mcp.utils.client import Application, ArgocdError
 from argocd_mcp.utils.logging import AuditLogger
-from argocd_mcp.utils.safety import ConfirmationRequired, OperationBlocked, SafetyGuard
+from argocd_mcp.utils.safety import SafetyGuard
 
 
 @pytest.mark.unit

@@ -2,7 +2,6 @@
 # ABOUTME: Tests client initialization, request handling, and response parsing
 
 import pytest
-from pydantic import SecretStr
 
 from argocd_mcp.config import ArgocdInstance
 from argocd_mcp.utils.client import Application, ArgocdClient, ArgocdError

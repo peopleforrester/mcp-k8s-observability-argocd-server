@@ -2,7 +2,7 @@
 # ABOUTME: Provides shared fixtures for unit and integration tests
 
 import os
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

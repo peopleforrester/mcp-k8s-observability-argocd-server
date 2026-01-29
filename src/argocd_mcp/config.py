@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
+from pathlib import Path  # noqa: TC003 - Required at runtime for Pydantic
 from typing import Annotated
 
 from pydantic import BaseModel, Field, SecretStr, field_validator

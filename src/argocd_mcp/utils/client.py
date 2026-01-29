@@ -147,19 +147,19 @@ class ArgocdClient:
             return data
 
         if isinstance(data, str):
-            result = data
+            masked_str = data
             for pattern, replacement in SECRET_PATTERNS:
-                result = pattern.sub(replacement, result)
-            return result
+                masked_str = pattern.sub(replacement, masked_str)
+            return masked_str
         if isinstance(data, dict):
-            result = {}
+            masked_dict: dict[str, Any] = {}
             for k, v in data.items():
                 # Mask values of keys that look sensitive
                 if k.lower() in SENSITIVE_KEYS:
-                    result[k] = "***MASKED***"
+                    masked_dict[k] = "***MASKED***"
                 else:
-                    result[k] = self._mask_response(v)
-            return result
+                    masked_dict[k] = self._mask_response(v)
+            return masked_dict
         if isinstance(data, list):
             return [self._mask_response(item) for item in data]
         return data
@@ -225,7 +225,8 @@ class ArgocdClient:
             )
 
         result = response.json() if response.content else {}
-        return self._mask_response(result)
+        masked = self._mask_response(result)
+        return masked if isinstance(masked, dict) else {}
 
     async def list_applications(
         self,
@@ -335,7 +336,8 @@ class ArgocdClient:
             f"/applications/{name}/events",
             params=params or None,
         )
-        return data.get("items", [])
+        items = data.get("items", [])
+        return list(items) if isinstance(items, list) else []
 
     async def get_resource_tree(self, name: str) -> dict[str, Any]:
         """Get resource tree for application.
@@ -382,7 +384,8 @@ class ArgocdClient:
             params=params,
         )
         # Logs endpoint returns streaming content; aggregate
-        return data.get("content", "") if isinstance(data, dict) else str(data)
+        content = data.get("content", "") if isinstance(data, dict) else str(data)
+        return str(content)
 
     async def sync_application(
         self,
@@ -490,7 +493,8 @@ class ArgocdClient:
             List of cluster information
         """
         data = await self._request("GET", "/clusters")
-        return data.get("items", [])
+        items = data.get("items", [])
+        return list(items) if isinstance(items, list) else []
 
     async def list_projects(self) -> list[dict[str, Any]]:
         """List ArgoCD projects.
@@ -499,7 +503,8 @@ class ArgocdClient:
             List of project information
         """
         data = await self._request("GET", "/projects")
-        return data.get("items", [])
+        items = data.get("items", [])
+        return list(items) if isinstance(items, list) else []
 
     async def get_settings(self) -> dict[str, Any]:
         """Get ArgoCD server settings.

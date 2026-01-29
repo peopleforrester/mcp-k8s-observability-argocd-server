@@ -2,12 +2,10 @@
 # ABOUTME: Tests correlation IDs, configure_logging, and AuditLogger class
 
 import json
-import uuid
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-import structlog
 
 from argocd_mcp.utils.logging import (
     AuditLogger,

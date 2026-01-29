@@ -9,11 +9,14 @@ import json
 import logging
 import uuid
 from contextvars import ContextVar
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import structlog
+
+if TYPE_CHECKING:
+    from collections.abc import MutableMapping
+    from pathlib import Path
 
 # Context variable for correlation ID
 correlation_id: ContextVar[str] = ContextVar("correlation_id", default="")
@@ -34,10 +37,10 @@ def set_correlation_id(cid: str) -> None:
 
 
 def add_correlation_id(
-    logger: structlog.types.WrappedLogger,
-    method_name: str,
-    event_dict: dict[str, Any],
-) -> dict[str, Any]:
+    logger: structlog.types.WrappedLogger,  # noqa: ARG001 - Required by structlog Processor API
+    method_name: str,  # noqa: ARG001 - Required by structlog Processor API
+    event_dict: MutableMapping[str, Any],
+) -> MutableMapping[str, Any]:
     """Add correlation ID to log events."""
     event_dict["correlation_id"] = get_correlation_id()
     return event_dict
@@ -103,8 +106,8 @@ class AuditLogger:
             result: Result (e.g., "success", "blocked", "error")
             details: Additional details
         """
-        entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+        entry: dict[str, Any] = {
+            "timestamp": datetime.now(UTC).isoformat(),
             "correlation_id": get_correlation_id(),
             "action": action,
             "target": target,

@@ -9,11 +9,13 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import structlog
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from argocd_mcp.config import SecuritySettings
 
 logger = structlog.get_logger(__name__)

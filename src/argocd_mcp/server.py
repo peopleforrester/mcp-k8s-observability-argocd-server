@@ -5,22 +5,24 @@
 
 from __future__ import annotations
 
-import asyncio
 import sys
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from mcp.server.fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
-from argocd_mcp.config import ArgocdInstance, ServerSettings, load_settings
-from argocd_mcp.utils.client import ArgocdClient, ArgocdError, Application
+from argocd_mcp.config import ServerSettings, load_settings
+from argocd_mcp.utils.client import ArgocdClient, ArgocdError
 from argocd_mcp.utils.logging import AuditLogger, configure_logging, set_correlation_id
-from argocd_mcp.utils.safety import ConfirmationRequired, OperationBlocked, SafetyGuard
+from argocd_mcp.utils.safety import ConfirmationRequired, SafetyGuard
 
 if TYPE_CHECKING:
-    pass
+    from collections.abc import AsyncIterator
+
+# Type alias for FastMCP Context with proper type parameters
+MCPContext = Context[Any, Any]
 
 logger = structlog.get_logger(__name__)
 
@@ -32,7 +34,7 @@ _audit_logger: AuditLogger | None = None
 
 
 @asynccontextmanager
-async def lifespan(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
+async def lifespan(_server: FastMCP) -> AsyncIterator[dict[str, Any]]:
     """Manage server lifecycle and client connections."""
     global _settings, _clients, _safety_guard, _audit_logger
 
@@ -123,7 +125,7 @@ class ListApplicationsParams(BaseModel):
 
 
 @mcp.tool()
-async def list_applications(params: ListApplicationsParams, ctx: Context) -> str:
+async def list_applications(params: ListApplicationsParams, ctx: MCPContext) -> str:
     """List ArgoCD applications with optional filtering.
 
     Returns applications matching the specified filters. Use this to get
@@ -155,12 +157,12 @@ async def list_applications(params: ListApplicationsParams, ctx: Context) -> str
         # Format output for agent consumption
         lines = [f"Found {len(apps)} application(s):", ""]
         for app in apps:
-            status_icon = "" if app.health_status == "Healthy" else ""
-            sync_icon = "" if app.sync_status == "Synced" else ""
+            health_marker = "[OK]" if app.health_status == "Healthy" else "[!]"
+            sync_marker = "[OK]" if app.sync_status == "Synced" else "[!]"
             lines.append(
                 f"- {app.name} [{app.project}] "
-                f"health={app.health_status}{status_icon} "
-                f"sync={app.sync_status}{sync_icon} "
+                f"health={app.health_status} {health_marker} "
+                f"sync={app.sync_status} {sync_marker} "
                 f"dest={app.destination_namespace}@{app.destination_server[:30]}..."
             )
 
@@ -179,7 +181,7 @@ class GetApplicationParams(BaseModel):
 
 
 @mcp.tool()
-async def get_application(params: GetApplicationParams, ctx: Context) -> str:
+async def get_application(params: GetApplicationParams, ctx: MCPContext) -> str:
     """Get detailed information about a specific ArgoCD application.
 
     Returns comprehensive application details including source repo, sync status,
@@ -248,7 +250,7 @@ class GetApplicationStatusParams(BaseModel):
 
 
 @mcp.tool()
-async def get_application_status(params: GetApplicationStatusParams, ctx: Context) -> str:
+async def get_application_status(params: GetApplicationStatusParams, ctx: MCPContext) -> str:
     """Get condensed health and sync status for quick checks.
 
     Use this for a quick status check when you don't need full application details.
@@ -266,13 +268,13 @@ async def get_application_status(params: GetApplicationStatusParams, ctx: Contex
 
         get_audit_logger().log_read("get_application_status", params.name)
 
-        health_icon = "" if app.health_status == "Healthy" else ""
-        sync_icon = "" if app.sync_status == "Synced" else ""
+        health_marker = "[OK]" if app.health_status == "Healthy" else "[!]"
+        sync_marker = "[OK]" if app.sync_status == "Synced" else "[!]"
 
         return (
             f"Application: {app.name}\n"
-            f"Health: {app.health_status} {health_icon}\n"
-            f"Sync: {app.sync_status} {sync_icon}"
+            f"Health: {app.health_status} {health_marker}\n"
+            f"Sync: {app.sync_status} {sync_marker}"
         )
 
     except ArgocdError as e:
@@ -289,7 +291,7 @@ class GetApplicationDiffParams(BaseModel):
 
 
 @mcp.tool()
-async def get_application_diff(params: GetApplicationDiffParams, ctx: Context) -> str:
+async def get_application_diff(params: GetApplicationDiffParams, ctx: MCPContext) -> str:
     """Preview what would change on sync (dry-run diff).
 
     Shows resources that would be created, updated, or deleted if sync
@@ -378,7 +380,7 @@ class GetApplicationHistoryParams(BaseModel):
 
 
 @mcp.tool()
-async def get_application_history(params: GetApplicationHistoryParams, ctx: Context) -> str:
+async def get_application_history(params: GetApplicationHistoryParams, ctx: MCPContext) -> str:
     """View deployment history with commit info and timestamps.
 
     Shows recent deployments including revision, timestamp, and initiator.
@@ -422,7 +424,7 @@ class DiagnoseSyncFailureParams(BaseModel):
 
 
 @mcp.tool()
-async def diagnose_sync_failure(params: DiagnoseSyncFailureParams, ctx: Context) -> str:
+async def diagnose_sync_failure(params: DiagnoseSyncFailureParams, ctx: MCPContext) -> str:
     """Diagnose why an application sync failed.
 
     Aggregates sync status, resource conditions, events, and recent logs
@@ -558,7 +560,7 @@ class ListClustersParams(BaseModel):
 
 
 @mcp.tool()
-async def list_clusters(params: ListClustersParams, ctx: Context) -> str:
+async def list_clusters(params: ListClustersParams, ctx: MCPContext) -> str:
     """List registered Kubernetes clusters with health status.
 
     Shows all clusters registered with ArgoCD and their connection status.
@@ -600,7 +602,7 @@ class ListProjectsParams(BaseModel):
 
 
 @mcp.tool()
-async def list_projects(params: ListProjectsParams, ctx: Context) -> str:
+async def list_projects(params: ListProjectsParams, ctx: MCPContext) -> str:
     """List ArgoCD projects.
 
     Shows all projects which organize and control application access.
@@ -653,7 +655,7 @@ class SyncApplicationParams(BaseModel):
 
 
 @mcp.tool()
-async def sync_application(params: SyncApplicationParams, ctx: Context) -> str:
+async def sync_application(params: SyncApplicationParams, ctx: MCPContext) -> str:
     """Synchronize application with Git repository.
 
     By default runs in dry-run mode showing what would change.
@@ -694,7 +696,7 @@ async def sync_application(params: SyncApplicationParams, ctx: Context) -> str:
         mode = "[DRY-RUN] " if params.dry_run else ""
         await ctx.report_progress(0, 2, f"{mode}Initiating sync for {params.name}")
 
-        result = await client.sync_application(
+        await client.sync_application(
             name=params.name,
             dry_run=params.dry_run,
             prune=params.prune,
@@ -739,7 +741,7 @@ class RefreshApplicationParams(BaseModel):
 
 
 @mcp.tool()
-async def refresh_application(params: RefreshApplicationParams, ctx: Context) -> str:
+async def refresh_application(params: RefreshApplicationParams, ctx: MCPContext) -> str:
     """Force manifest refresh from Git.
 
     Triggers ArgoCD to re-fetch manifests from the Git repository.
@@ -792,7 +794,7 @@ class DeleteApplicationParams(BaseModel):
 
 
 @mcp.tool()
-async def delete_application(params: DeleteApplicationParams, ctx: Context) -> str:
+async def delete_application(params: DeleteApplicationParams, ctx: MCPContext) -> str:
     """Delete an ArgoCD application (DESTRUCTIVE).
 
     Requires explicit confirmation. Set confirm=true AND confirm_name
@@ -894,8 +896,6 @@ async def get_security_resource() -> str:
 
 def main() -> None:
     """Run the ArgoCD MCP server."""
-    import sys
-
     # Configure initial logging
     configure_logging(level="INFO")
     logger.info("ArgoCD MCP Server starting")

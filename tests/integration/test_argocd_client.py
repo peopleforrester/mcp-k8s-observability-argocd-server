@@ -20,7 +20,7 @@ import signal
 import socket
 import subprocess
 import time
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import SecretStr
@@ -29,8 +29,7 @@ from argocd_mcp.config import ArgocdInstance
 from argocd_mcp.utils.client import Application, ArgocdClient, ArgocdError
 
 if TYPE_CHECKING:
-    pass
-
+    from collections.abc import Iterator
 
 # Test application manifest for ArgoCD
 TEST_APP_NAME = "integration-test-nginx"
@@ -189,7 +188,7 @@ class PortForwardProcess:
                 sock.close()
                 if result == 0:
                     return True
-            except socket.error:
+            except OSError:
                 pass
             time.sleep(0.5)
         return False
@@ -277,7 +276,7 @@ def argocd_connection(argocd_port_forward: int | None) -> tuple[str, str] | None
         print("Could not get ArgoCD API token")
         return None
 
-    print(f"\nArgoCD authentication successful, got API token")
+    print("\nArgoCD authentication successful, got API token")
     return (url, token)
 
 
