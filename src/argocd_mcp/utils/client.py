@@ -40,13 +40,14 @@ SENSITIVE_KEYS = frozenset([
 ])
 
 
-@dataclass
-class ArgocdError:
-    """Structured ArgoCD API error."""
+class ArgocdError(Exception):
+    """Structured ArgoCD API error that can be raised and caught."""
 
-    code: int
-    message: str
-    details: str | None = None
+    def __init__(self, code: int, message: str, details: str | None = None) -> None:
+        self.code = code
+        self.message = message
+        self.details = details
+        super().__init__(str(self))
 
     def __str__(self) -> str:
         """Format error for agent consumption."""
@@ -247,7 +248,7 @@ class ArgocdClient:
             params["selector"] = selector
 
         data = await self._request("GET", "/applications", params=params or None)
-        items = data.get("items", [])
+        items = data.get("items") or []
         return [Application.from_api_response(item) for item in items]
 
     async def get_application(self, name: str) -> Application:

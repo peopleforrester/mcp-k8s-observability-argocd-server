@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-desktop/main/schemas/config.schema.json",
+  "_comment": "Basic read-only configuration for ArgoCD MCP Server",
+  "mcpServers": {
+    "argocd": {
+      "command": "uvx",
+      "args": ["argocd-mcp-server"],
+      "env": {
+        "ARGOCD_URL": "https://argocd.example.com",
+        "ARGOCD_TOKEN": "your-api-token-here"
+      }
+    }
+  }
+}

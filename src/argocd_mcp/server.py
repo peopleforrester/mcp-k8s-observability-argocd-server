@@ -70,7 +70,6 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
 # Create FastMCP server
 mcp = FastMCP(
     "argocd-mcp",
-    version="0.1.0",
     lifespan=lifespan,
 )
 

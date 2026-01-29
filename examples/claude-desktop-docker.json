@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-desktop/main/schemas/config.schema.json",
+  "_comment": "Configuration using Docker container instead of uvx",
+  "mcpServers": {
+    "argocd": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-e", "ARGOCD_URL",
+        "-e", "ARGOCD_TOKEN",
+        "-e", "MCP_READ_ONLY",
+        "ghcr.io/peopleforrester/argocd-mcp-server:latest"
+      ],
+      "env": {
+        "ARGOCD_URL": "https://argocd.example.com",
+        "ARGOCD_TOKEN": "your-api-token-here",
+        "MCP_READ_ONLY": "true"
+      }
+    }
+  }
+}

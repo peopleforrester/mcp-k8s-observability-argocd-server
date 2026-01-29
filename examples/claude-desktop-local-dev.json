@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-desktop/main/schemas/config.schema.json",
+  "_comment": "Local development configuration for Kind cluster with self-signed certs",
+  "mcpServers": {
+    "argocd-local": {
+      "command": "uv",
+      "args": ["run", "argocd-mcp"],
+      "cwd": "/path/to/argocd-mcp-server",
+      "env": {
+        "ARGOCD_URL": "https://localhost:8080",
+        "ARGOCD_TOKEN": "your-local-admin-password",
+        "ARGOCD_INSECURE": "true",
+        "MCP_READ_ONLY": "false",
+        "MCP_DISABLE_DESTRUCTIVE": "false",
+        "ARGOCD_MCP_LOG_LEVEL": "DEBUG"
+      }
+    }
+  }
+}

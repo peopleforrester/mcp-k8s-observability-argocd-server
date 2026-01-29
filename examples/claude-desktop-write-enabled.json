@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-desktop/main/schemas/config.schema.json",
+  "_comment": "Configuration with write operations enabled (sync, refresh) but destructive operations still blocked",
+  "mcpServers": {
+    "argocd": {
+      "command": "uvx",
+      "args": ["argocd-mcp-server"],
+      "env": {
+        "ARGOCD_URL": "https://argocd.example.com",
+        "ARGOCD_TOKEN": "your-api-token-here",
+        "MCP_READ_ONLY": "false",
+        "MCP_DISABLE_DESTRUCTIVE": "true",
+        "MCP_AUDIT_LOG": "/tmp/argocd-mcp-audit.log"
+      }
+    }
+  }
+}

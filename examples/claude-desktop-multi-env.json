@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-desktop/main/schemas/config.schema.json",
+  "_comment": "Multiple ArgoCD instances with different permission levels for prod (read-only) and staging (write-enabled)",
+  "mcpServers": {
+    "argocd-prod": {
+      "command": "uvx",
+      "args": ["argocd-mcp-server"],
+      "env": {
+        "ARGOCD_URL": "https://argocd-prod.example.com",
+        "ARGOCD_TOKEN": "prod-readonly-token",
+        "MCP_READ_ONLY": "true",
+        "MCP_DISABLE_DESTRUCTIVE": "true",
+        "MCP_SINGLE_CLUSTER": "true",
+        "MCP_AUDIT_LOG": "/var/log/argocd-mcp/prod-audit.log"
+      }
+    },
+    "argocd-staging": {
+      "command": "uvx",
+      "args": ["argocd-mcp-server"],
+      "env": {
+        "ARGOCD_URL": "https://argocd-staging.example.com",
+        "ARGOCD_TOKEN": "staging-sync-token",
+        "MCP_READ_ONLY": "false",
+        "MCP_DISABLE_DESTRUCTIVE": "true",
+        "MCP_AUDIT_LOG": "/var/log/argocd-mcp/staging-audit.log"
+      }
+    }
+  }
+}

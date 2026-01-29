@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -67,7 +68,7 @@ def configure_logging(
     structlog.configure(
         processors=processors,
         wrapper_class=structlog.make_filtering_bound_logger(
-            getattr(structlog, level.upper(), structlog.INFO)
+            getattr(logging, level.upper(), logging.INFO)
         ),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
