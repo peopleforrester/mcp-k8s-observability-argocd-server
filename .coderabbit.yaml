@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# ABOUTME: CodeRabbit AI code review configuration
+# ABOUTME: Customizes automated PR review behavior for this repository
+
+language: "en-US"
+
+early_access: false
+
+reviews:
+  # Enable review features
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+
+  # Auto-review PRs targeting these branches
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+      - staging
+
+  # Review scope
+  path_filters:
+    - "!**/*.lock"
+    - "!**/uv.lock"
+    - "!**/*.json"
+    - "!docs/**"
+
+  # Focus areas for this MCP server project
+  path_instructions:
+    - path: "src/argocd_mcp/**/*.py"
+      instructions: |
+        Review for:
+        - Security best practices (no hardcoded secrets, proper input validation)
+        - Type hints completeness and accuracy
+        - Error handling with agent-friendly messages
+        - Adherence to the three-tier permission model (Read/Write/Destructive)
+        - Dry-run by default pattern for write operations
+
+    - path: "src/argocd_mcp/utils/safety.py"
+      instructions: |
+        This is security-critical code. Review carefully for:
+        - Rate limiting effectiveness
+        - Confirmation pattern correctness
+        - No bypasses of security controls
+
+    - path: "tests/**/*.py"
+      instructions: |
+        Review for:
+        - Test coverage of edge cases
+        - Proper use of mocks and fixtures
+        - Clear test naming and assertions
+
+chat:
+  auto_reply: true
