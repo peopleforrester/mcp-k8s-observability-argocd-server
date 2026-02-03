@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 # ABOUTME: CodeRabbit AI code review configuration
 # ABOUTME: Customizes automated PR review behavior for this repository
 
@@ -12,6 +13,14 @@ reviews:
   poem: false
   review_status: true
   collapse_walkthrough: false
+
+  # Auto-review PRs targeting these branches
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+      - staging
 
   # Review scope
   path_filters:
@@ -47,10 +56,3 @@ reviews:
 
 chat:
   auto_reply: true
-
-# Tools to use for analysis
-tools:
-  ruff:
-    enabled: true
-  mypy:
-    enabled: true
