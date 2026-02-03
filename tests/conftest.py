@@ -141,7 +141,11 @@ def mock_argocd_client(
     client.get_application_events.return_value = []
     client.get_resource_tree.return_value = {"nodes": []}
     client.list_clusters.return_value = [
-        {"name": "in-cluster", "server": "https://kubernetes.default.svc", "connectionState": {"status": "Successful"}}
+        {
+            "name": "in-cluster",
+            "server": "https://kubernetes.default.svc",
+            "connectionState": {"status": "Successful"},
+        }
     ]
     client.list_projects.return_value = [
         {"metadata": {"name": "default"}, "spec": {"description": "Default project"}}

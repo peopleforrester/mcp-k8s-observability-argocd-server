@@ -24,16 +24,20 @@ class MockFastMCP:
 
     def tool(self):
         """Decorator that passes through the function."""
+
         def decorator(func):
             self.tools[func.__name__] = func
             return func
+
         return decorator
 
     def resource(self, name):
         """Decorator for resources."""
+
         def decorator(func):
             self.resources[name] = func
             return func
+
         return decorator
 
     def run(self):
@@ -528,7 +532,12 @@ class TestGetApplicationDiffTool:
         mocks = server_with_mocks
         mocks["client"].get_application_diff.return_value = {
             "items": [
-                {"kind": "Deployment", "name": "new-deploy", "liveState": None, "targetState": "{}"},
+                {
+                    "kind": "Deployment",
+                    "name": "new-deploy",
+                    "liveState": None,
+                    "targetState": "{}",
+                },
                 {"kind": "ConfigMap", "name": "config", "liveState": "{}", "targetState": "{}v2"},
                 {"kind": "Service", "name": "old-svc", "liveState": "{}", "targetState": None},
                 {"kind": "Secret", "name": "synced", "liveState": "{}", "targetState": "{}"},
@@ -733,7 +742,10 @@ class TestDiagnoseSyncFailureTool:
         mocks["client"].get_application.return_value = degraded_application
         mocks["client"].get_resource_tree.return_value = {"nodes": []}
         mocks["client"].get_application_events.return_value = [
-            {"reason": "BackOff", "message": "Back-off restarting failed container: CrashLoopBackOff"},
+            {
+                "reason": "BackOff",
+                "message": "Back-off restarting failed container: CrashLoopBackOff",
+            },
         ]
 
         params = DiagnoseSyncFailureParams(name="failing-app", instance="primary")
@@ -821,7 +833,11 @@ class TestDiagnoseSyncFailureTool:
         mocks["client"].get_application.return_value = degraded_application
         mocks["client"].get_resource_tree.return_value = {
             "nodes": [
-                {"kind": "Pod", "name": "app-pod", "health": {"status": "Degraded", "message": "Unhealthy"}},
+                {
+                    "kind": "Pod",
+                    "name": "app-pod",
+                    "health": {"status": "Degraded", "message": "Unhealthy"},
+                },
                 {"kind": "Deployment", "name": "app", "health": {"status": "Healthy"}},
             ]
         }
@@ -970,8 +986,16 @@ class TestListClustersTool:
 
         mocks = server_with_mocks
         mocks["client"].list_clusters.return_value = [
-            {"name": "in-cluster", "server": "https://kubernetes.default.svc", "connectionState": {"status": "Successful"}},
-            {"name": "prod", "server": "https://prod.example.com", "connectionState": {"status": "Successful"}},
+            {
+                "name": "in-cluster",
+                "server": "https://kubernetes.default.svc",
+                "connectionState": {"status": "Successful"},
+            },
+            {
+                "name": "prod",
+                "server": "https://prod.example.com",
+                "connectionState": {"status": "Successful"},
+            },
         ]
 
         params = ListClustersParams(instance="primary")

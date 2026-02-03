@@ -428,9 +428,7 @@ class TestAuditLoggerLogWrite:
         with patch.object(logger, "log") as mock_log:
             logger.log_write("sync_application", "my-app", "success", details)
 
-            mock_log.assert_called_once_with(
-                "sync_application", "my-app", "success", details
-            )
+            mock_log.assert_called_once_with("sync_application", "my-app", "success", details)
 
 
 @pytest.mark.unit

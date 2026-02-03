@@ -204,6 +204,5 @@ class TestArgocdClient:
 
         with pytest.raises(RuntimeError, match="not initialized"):
             import asyncio
-            asyncio.get_event_loop().run_until_complete(
-                client._request("GET", "/applications")
-            )
+
+            asyncio.get_event_loop().run_until_complete(client._request("GET", "/applications"))

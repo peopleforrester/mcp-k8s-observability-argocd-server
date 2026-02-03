@@ -83,9 +83,7 @@ class TestSafetyGuard:
         assert isinstance(result, OperationBlocked)
         assert "Rate limit" in result.reason
 
-    def test_write_operation_blocked_read_only(
-        self, read_only_safety_guard: SafetyGuard
-    ):
+    def test_write_operation_blocked_read_only(self, read_only_safety_guard: SafetyGuard):
         """Test that write operations are blocked in read-only mode."""
         result = read_only_safety_guard.check_write_operation("sync_application")
         assert isinstance(result, OperationBlocked)
@@ -96,9 +94,7 @@ class TestSafetyGuard:
         result = safety_guard.check_write_operation("sync_application")
         assert result is None
 
-    def test_destructive_operation_blocked_read_only(
-        self, read_only_safety_guard: SafetyGuard
-    ):
+    def test_destructive_operation_blocked_read_only(self, read_only_safety_guard: SafetyGuard):
         """Test that destructive operations are blocked in read-only mode."""
         result = read_only_safety_guard.check_destructive_operation(
             "delete_application",
@@ -108,9 +104,7 @@ class TestSafetyGuard:
         )
         assert isinstance(result, OperationBlocked)
 
-    def test_destructive_operation_requires_confirmation(
-        self, safety_guard: SafetyGuard
-    ):
+    def test_destructive_operation_requires_confirmation(self, safety_guard: SafetyGuard):
         """Test that destructive operations require confirmation."""
         result = safety_guard.check_destructive_operation(
             "delete_application",
@@ -120,9 +114,7 @@ class TestSafetyGuard:
         assert isinstance(result, ConfirmationRequired)
         assert "test-app" in result.confirmation_instructions
 
-    def test_destructive_operation_requires_name_match(
-        self, safety_guard: SafetyGuard
-    ):
+    def test_destructive_operation_requires_name_match(self, safety_guard: SafetyGuard):
         """Test that destructive operations require name confirmation match."""
         result = safety_guard.check_destructive_operation(
             "delete_application",
@@ -132,9 +124,7 @@ class TestSafetyGuard:
         )
         assert isinstance(result, ConfirmationRequired)
 
-    def test_destructive_operation_allowed_with_confirmation(
-        self, safety_guard: SafetyGuard
-    ):
+    def test_destructive_operation_allowed_with_confirmation(self, safety_guard: SafetyGuard):
         """Test that destructive operations allowed with proper confirmation."""
         result = safety_guard.check_destructive_operation(
             "delete_application",

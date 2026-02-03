@@ -34,10 +34,21 @@ SECRET_PATTERNS = [
 ]
 
 # Keys that should have their values masked in dicts
-SENSITIVE_KEYS = frozenset([
-    "token", "password", "secret", "api_key", "apikey", "api-key",
-    "authorization", "auth", "credential", "credentials", "key",
-])
+SENSITIVE_KEYS = frozenset(
+    [
+        "token",
+        "password",
+        "secret",
+        "api_key",
+        "apikey",
+        "api-key",
+        "authorization",
+        "auth",
+        "credential",
+        "credentials",
+        "key",
+    ]
+)
 
 
 class ArgocdError(Exception):

@@ -519,9 +519,7 @@ async def diagnose_sync_failure(params: DiagnoseSyncFailureParams, ctx: MCPConte
             n for n in nodes if n.get("health", {}).get("status") in ("Degraded", "Missing")
         ]
         if unhealthy_resources:
-            issues.append(
-                f"Found {len(unhealthy_resources)} unhealthy resources in resource tree"
-            )
+            issues.append(f"Found {len(unhealthy_resources)} unhealthy resources in resource tree")
             for r in unhealthy_resources[:5]:
                 issues.append(
                     f"  - {r.get('kind', 'Unknown')}/{r.get('name', 'unknown')}: "
@@ -673,7 +671,9 @@ async def sync_application(params: SyncApplicationParams, ctx: MCPContext) -> st
         )
         if blocked:
             if isinstance(blocked, ConfirmationRequired):
-                get_audit_logger().log_blocked("sync_application", params.name, "prune requires confirmation")
+                get_audit_logger().log_blocked(
+                    "sync_application", params.name, "prune requires confirmation"
+                )
                 return (
                     f"PRUNE REQUIRES CONFIRMATION\n\n"
                     f"Syncing '{params.name}' with prune=true will DELETE resources "
@@ -762,7 +762,9 @@ async def refresh_application(params: RefreshApplicationParams, ctx: MCPContext)
 
         app = await client.refresh_application(params.name, params.hard)
 
-        get_audit_logger().log_write("refresh_application", params.name, "success", {"hard": params.hard})
+        get_audit_logger().log_write(
+            "refresh_application", params.name, "success", {"hard": params.hard}
+        )
 
         return (
             f"Refresh triggered for '{params.name}' ({refresh_type})\n"
@@ -820,11 +822,15 @@ async def delete_application(params: DeleteApplicationParams, ctx: MCPContext) -
                     "namespace": app.destination_namespace,
                     "cluster": app.destination_server[:50],
                     "cascade": str(params.cascade),
-                    "effect": "DELETE cluster resources" if params.cascade else "ORPHAN cluster resources",
+                    "effect": "DELETE cluster resources"
+                    if params.cascade
+                    else "ORPHAN cluster resources",
                 }
             except ArgocdError:
                 pass
-            get_audit_logger().log_blocked("delete_application", params.name, "confirmation required")
+            get_audit_logger().log_blocked(
+                "delete_application", params.name, "confirmation required"
+            )
             return blocked.format_message()
         return blocked.format_message()
 
@@ -842,10 +848,7 @@ async def delete_application(params: DeleteApplicationParams, ctx: MCPContext) -
             {"cascade": params.cascade},
         )
 
-        return (
-            f"Application '{params.name}' deleted successfully.\n"
-            f"Cascade: {params.cascade}"
-        )
+        return f"Application '{params.name}' deleted successfully.\nCascade: {params.cascade}"
 
     except ArgocdError as e:
         get_audit_logger().log_error("delete_application", params.name, str(e))

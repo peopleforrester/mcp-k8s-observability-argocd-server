@@ -67,8 +67,15 @@ def _is_argocd_available() -> bool:
     try:
         result = subprocess.run(
             [
-                "kubectl", "--context", ctx, "get", "pods", "-n", "argocd",
-                "-l", "app.kubernetes.io/name=argocd-server",
+                "kubectl",
+                "--context",
+                ctx,
+                "get",
+                "pods",
+                "-n",
+                "argocd",
+                "-l",
+                "app.kubernetes.io/name=argocd-server",
             ],
             capture_output=True,
             text=True,
@@ -85,9 +92,16 @@ def _get_argocd_password() -> str | None:
     try:
         result = subprocess.run(
             [
-                "kubectl", "--context", ctx, "-n", "argocd",
-                "get", "secret", "argocd-initial-admin-secret",
-                "-o", "jsonpath={.data.password}",
+                "kubectl",
+                "--context",
+                ctx,
+                "-n",
+                "argocd",
+                "get",
+                "secret",
+                "argocd-initial-admin-secret",
+                "-o",
+                "jsonpath={.data.password}",
             ],
             capture_output=True,
             text=True,
@@ -150,8 +164,11 @@ class PortForwardProcess:
     def start(self) -> bool:
         """Start port-forward process. Returns True if successful."""
         cmd = [
-            "kubectl", "--context", self.context,
-            "-n", self.namespace,
+            "kubectl",
+            "--context",
+            self.context,
+            "-n",
+            self.namespace,
             "port-forward",
             f"svc/{self.service}",
             f"{self.local_port}:{self.remote_port}",
@@ -340,8 +357,14 @@ def test_application(argocd_connection: tuple[str, str] | None) -> Iterator[str 
         try:
             subprocess.run(
                 [
-                    "kubectl", "--context", ctx, "-n", TEST_APP_NAMESPACE,
-                    "delete", "application", TEST_APP_NAME,
+                    "kubectl",
+                    "--context",
+                    ctx,
+                    "-n",
+                    TEST_APP_NAMESPACE,
+                    "delete",
+                    "application",
+                    TEST_APP_NAME,
                     "--ignore-not-found",
                 ],
                 capture_output=True,
@@ -582,9 +605,9 @@ class TestArgocdClientIntegration:
             assert len(clusters) >= 1
 
             cluster_servers = [c.get("server", "") for c in clusters]
-            assert any(
-                "kubernetes.default" in s for s in cluster_servers
-            ), f"No in-cluster endpoint found in {cluster_servers}"
+            assert any("kubernetes.default" in s for s in cluster_servers), (
+                f"No in-cluster endpoint found in {cluster_servers}"
+            )
 
     @requires_argocd
     async def test_list_projects(
@@ -602,9 +625,7 @@ class TestArgocdClientIntegration:
             assert len(projects) >= 1
 
             project_names = [p.get("metadata", {}).get("name", "") for p in projects]
-            assert "default" in project_names, (
-                f"Default project not found in {project_names}"
-            )
+            assert "default" in project_names, f"Default project not found in {project_names}"
 
     @requires_argocd
     async def test_get_settings(
