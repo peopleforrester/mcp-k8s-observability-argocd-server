@@ -141,7 +141,8 @@ jobs:
       - name: Install ArgoCD
         run: |
           kubectl create namespace argocd
-          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          # Use server-side apply to handle large CRD annotations (>256KB)
+          kubectl apply --server-side -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
           kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
 
       - name: Get ArgoCD credentials
