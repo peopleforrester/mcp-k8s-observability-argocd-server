@@ -3,8 +3,8 @@
   "_comment": "DANGER: Full access configuration including destructive operations. Use with extreme caution!",
   "mcpServers": {
     "argocd": {
-      "command": "uvx",
-      "args": ["argocd-mcp-server"],
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/argocd-mcp-server", "argocd-mcp"],
       "env": {
         "ARGOCD_URL": "https://argocd.example.com",
         "ARGOCD_TOKEN": "your-api-token-here",

@@ -3,8 +3,8 @@
   "_comment": "Configuration with write operations enabled (sync, refresh) but destructive operations still blocked",
   "mcpServers": {
     "argocd": {
-      "command": "uvx",
-      "args": ["argocd-mcp-server"],
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/argocd-mcp-server", "argocd-mcp"],
       "env": {
         "ARGOCD_URL": "https://argocd.example.com",
         "ARGOCD_TOKEN": "your-api-token-here",

@@ -3,8 +3,8 @@
   "_comment": "Multiple ArgoCD instances with different permission levels for prod (read-only) and staging (write-enabled)",
   "mcpServers": {
     "argocd-prod": {
-      "command": "uvx",
-      "args": ["argocd-mcp-server"],
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/argocd-mcp-server", "argocd-mcp"],
       "env": {
         "ARGOCD_URL": "https://argocd-prod.example.com",
         "ARGOCD_TOKEN": "prod-readonly-token",
@@ -15,8 +15,8 @@
       }
     },
     "argocd-staging": {
-      "command": "uvx",
-      "args": ["argocd-mcp-server"],
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/argocd-mcp-server", "argocd-mcp"],
       "env": {
         "ARGOCD_URL": "https://argocd-staging.example.com",
         "ARGOCD_TOKEN": "staging-sync-token",
