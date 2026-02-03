@@ -155,46 +155,67 @@ Errors should tell you what went wrong AND what to try next.
 
 ## Quick Start
 
-### Claude Desktop Configuration
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/peopleforrester/mcp-k8s-observability-argocd-server
+cd mcp-k8s-observability-argocd-server
+
+# Install with uv
+uv sync
+```
+
+### Claude Desktop / Claude Code Configuration
+
+Add to your Claude configuration (`~/.claude.json` for Claude Code):
 
 ```json
 {
   "mcpServers": {
     "argocd": {
-      "command": "uvx",
-      "args": ["argocd-mcp-server"],
+      "type": "stdio",
+      "command": "/path/to/uv",
+      "args": [
+        "run",
+        "--directory",
+        "/path/to/mcp-k8s-observability-argocd-server",
+        "argocd-mcp"
+      ],
       "env": {
         "ARGOCD_URL": "https://argocd.example.com",
-        "ARGOCD_TOKEN": "your-api-token"
+        "ARGOCD_TOKEN": "your-api-token",
+        "ARGOCD_INSECURE": "false"
       }
     }
   }
 }
 ```
 
+**Note:** Replace `/path/to/uv` with the full path to your `uv` binary (run `which uv` to find it).
+
 See [examples/](examples/) for more configuration options including multi-cluster setups.
 
 ### Docker
 
 ```bash
-docker run -e ARGOCD_URL=https://argocd.example.com \
-           -e ARGOCD_TOKEN=your-token \
-           ghcr.io/peopleforrester/argocd-mcp-server:latest
-```
-
-### Local Development
-
-```bash
-# Clone and install
-git clone https://github.com/peopleforrester/mcp-k8s-observability-argocd-server
-cd mcp-k8s-observability-argocd-server
-
-# Install with uv
-uv sync --dev
+# Build the image
+docker build -t argocd-mcp-server .
 
 # Run with environment variables
+docker run -e ARGOCD_URL=https://argocd.example.com \
+           -e ARGOCD_TOKEN=your-token \
+           argocd-mcp-server:latest
+```
+
+### Running Directly
+
+```bash
+# Set environment variables
 export ARGOCD_URL=https://argocd.example.com
 export ARGOCD_TOKEN=your-token
+
+# Run the server
 uv run argocd-mcp
 ```
 
