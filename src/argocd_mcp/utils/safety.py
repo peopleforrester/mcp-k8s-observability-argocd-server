@@ -103,15 +103,12 @@ Rate limiting implements a "sliding window" algorithm:
 # - time: Timestamp tracking for rate limiter sliding window
 # - defaultdict: Auto-creates missing keys with default values
 # - dataclass/field: Automatic __init__, __repr__ generation for data classes
-# - wraps: Preserve function metadata in decorators
 # - TYPE_CHECKING: Only True during static analysis, not runtime
-# - TypeVar: Create generic type variables for decorator return types
 #
 # Third-party:
 # - structlog: Structured logging
 #
 # Type-checking only (not loaded at runtime):
-# - Callable: Type for functions/methods
 # - SecuritySettings: Configuration for safety features
 # =============================================================================
 
@@ -120,24 +117,16 @@ from __future__ import annotations
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from functools import wraps
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from argocd_mcp.config import SecuritySettings
 
 # Get a logger for this module
 # __name__ becomes "argocd_mcp.utils.safety"
 logger = structlog.get_logger(__name__)
-
-# TypeVar for generic function return types in decorators
-# This allows decorators to preserve the return type of decorated functions
-T = TypeVar("T")
-
 
 # =============================================================================
 # CONFIRMATION REQUIRED RESPONSE
@@ -686,106 +675,3 @@ class SafetyGuard:
         }
         # Return specific description or generic fallback
         return impacts.get(operation, "This operation may have significant impact")
-
-
-# =============================================================================
-# DECORATOR FUNCTIONS
-# =============================================================================
-# These decorators are for DOCUMENTATION and STATIC ANALYSIS, not runtime checks.
-# The actual checks happen in SafetyGuard.
-
-
-def require_write(
-    func: Callable[..., T],
-) -> Callable[..., T]:
-    """
-    Decorator to mark function as requiring write permissions.
-
-    This is a MARKER DECORATOR - it doesn't enforce anything at runtime.
-    Instead, it:
-    1. Documents that this function needs write access
-    2. Adds an attribute for potential static analysis
-    3. Supports future tooling that might check permissions
-
-    WHY A MARKER DECORATOR?
-    -----------------------
-    Actual permission checking happens in SafetyGuard, not here.
-    But decorators are useful for:
-    - Self-documenting code (@require_write clearly signals intent)
-    - IDE/tooling support
-    - Potential future automatic enforcement
-
-    HOW @wraps WORKS:
-    -----------------
-    @wraps(func) copies metadata from the original function:
-    - __name__: Function name
-    - __doc__: Docstring
-    - __module__: Module name
-
-    Without @wraps, introspection tools would see "wrapper" instead of
-    the original function name.
-
-    Example:
-        @require_write
-        async def sync_application(...):
-            ...
-
-        # The function now has:
-        sync_application._requires_write = True
-    """
-
-    @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> T:
-        return func(*args, **kwargs)
-
-    # Add marker attribute to signal this function requires write access
-    wrapper._requires_write = True  # type: ignore[attr-defined]
-    return wrapper
-
-
-def require_confirmation(
-    operation: str,
-) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    """
-    Decorator to mark function as requiring confirmation.
-
-    Similar to @require_write, but for destructive operations.
-    Takes the operation name as a parameter.
-
-    WHY PARAMETERIZED?
-    ------------------
-    Different operations have different impact descriptions.
-    The operation name helps generate appropriate confirmation messages.
-
-    DECORATOR FACTORY PATTERN:
-    --------------------------
-    This is a "decorator factory" - a function that returns a decorator.
-
-    @require_confirmation("delete_application")
-    def delete_app(...): ...
-
-    Is equivalent to:
-        decorator = require_confirmation("delete_application")
-        delete_app = decorator(delete_app)
-
-    This allows passing parameters to decorators.
-
-    Example:
-        @require_confirmation("delete_application")
-        async def delete_application(...):
-            ...
-
-        # The function now has:
-        delete_application._requires_confirmation = "delete_application"
-    """
-
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> T:
-            return func(*args, **kwargs)
-
-        # Add marker attribute with the operation name
-        wrapper._requires_confirmation = operation  # type: ignore[attr-defined]
-        return wrapper
-
-    return decorator

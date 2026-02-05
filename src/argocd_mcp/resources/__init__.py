@@ -1,9 +1,13 @@
 # ABOUTME: Resources package initialization for ArgoCD MCP Server
-# ABOUTME: Contains MCP resource implementations for cluster context and settings
+# ABOUTME: Reserved for future modularization of resource implementations
 
 """
-ArgoCD MCP Resources Package
+ArgoCD MCP Resources Package (placeholder).
 
-Resources provide contextual information to LLM agents:
-    - context.py: Cluster info, ArgoCD settings, RBAC context
+All MCP resource implementations currently reside in server.py:
+
+    - argocd://instances: Lists configured ArgoCD instance URLs and projects
+    - argocd://security: Exposes current safety mode (read-only, dry-run defaults)
+
+This package is reserved for future modularization if server.py grows too large.
 """

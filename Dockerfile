@@ -49,9 +49,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
 # Switch to non-root user
 USER argocd
 
-# Health check (for HTTP transport)
+# Health check - verify the server module can be imported
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import sys; sys.exit(0)"
+    CMD python -c "from argocd_mcp.server import main; import sys; sys.exit(0)"
 
 # Entry point
 ENTRYPOINT ["python", "-m", "argocd_mcp.server"]

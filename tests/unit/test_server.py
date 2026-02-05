@@ -1463,6 +1463,237 @@ class TestDeleteApplicationTool:
 
 
 @pytest.mark.unit
+class TestGetApplicationLogsTool:
+    """Tests for get_application_logs MCP tool."""
+
+    @pytest.mark.asyncio
+    async def test_get_application_logs_returns_logs(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Test get_application_logs returns formatted logs."""
+        from argocd_mcp.server import GetApplicationLogsParams, get_application_logs
+
+        mocks = server_with_mocks
+        mocks[
+            "client"
+        ].get_logs.return_value = "2025-01-01 INFO Starting app\n2025-01-01 INFO Ready"
+
+        params = GetApplicationLogsParams(name="test-app", instance="primary")
+        result = await get_application_logs(params, mocks["ctx"])
+
+        assert "Logs for 'test-app'" in result
+        assert "Starting app" in result
+        assert "Ready" in result
+        mocks["client"].get_logs.assert_called_once_with(
+            name="test-app",
+            pod_name=None,
+            container=None,
+            tail_lines=100,
+            since_seconds=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_application_logs_with_filters(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Test get_application_logs passes pod and container filters."""
+        from argocd_mcp.server import GetApplicationLogsParams, get_application_logs
+
+        mocks = server_with_mocks
+        mocks["client"].get_logs.return_value = "log data"
+
+        params = GetApplicationLogsParams(
+            name="test-app",
+            pod_name="web-pod-123",
+            container="web",
+            tail_lines=50,
+            since_seconds=3600,
+            instance="primary",
+        )
+        result = await get_application_logs(params, mocks["ctx"])
+
+        assert "pod: web-pod-123" in result
+        assert "container: web" in result
+        mocks["client"].get_logs.assert_called_once_with(
+            name="test-app",
+            pod_name="web-pod-123",
+            container="web",
+            tail_lines=50,
+            since_seconds=3600,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_application_logs_empty(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Test get_application_logs with empty logs."""
+        from argocd_mcp.server import GetApplicationLogsParams, get_application_logs
+
+        mocks = server_with_mocks
+        mocks["client"].get_logs.return_value = ""
+
+        params = GetApplicationLogsParams(name="test-app", instance="primary")
+        result = await get_application_logs(params, mocks["ctx"])
+
+        assert "No logs found" in result
+
+    @pytest.mark.asyncio
+    async def test_get_application_logs_handles_error(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Test get_application_logs error handling."""
+        from argocd_mcp.server import GetApplicationLogsParams, get_application_logs
+
+        mocks = server_with_mocks
+        error = ArgocdError(code=404, message="Application not found")
+        mocks["client"].get_logs.side_effect = error
+
+        params = GetApplicationLogsParams(name="nonexistent", instance="primary")
+        result = await get_application_logs(params, mocks["ctx"])
+
+        assert "ArgoCD API error" in result
+
+
+@pytest.mark.unit
+class TestRollbackApplicationTool:
+    """Tests for rollback_application MCP tool."""
+
+    @pytest.mark.asyncio
+    async def test_rollback_application_dry_run(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Test rollback with dry_run=True (default)."""
+        from argocd_mcp.server import RollbackApplicationParams, rollback_application
+
+        mocks = server_with_mocks
+        mocks["client"].rollback_application.return_value = {"status": "ok"}
+
+        params = RollbackApplicationParams(name="test-app", revision_id=3, instance="primary")
+        result = await rollback_application(params, mocks["ctx"])
+
+        assert "Dry-run rollback" in result
+        assert "revision 3" in result
+        assert "dry_run=false" in result
+        mocks["client"].rollback_application.assert_called_once_with(
+            name="test-app", revision_id=3, dry_run=True
+        )
+
+    @pytest.mark.asyncio
+    async def test_rollback_application_actual(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Test rollback with dry_run=False."""
+        from argocd_mcp.server import RollbackApplicationParams, rollback_application
+
+        mocks = server_with_mocks
+        mocks["client"].rollback_application.return_value = {"status": "ok"}
+
+        params = RollbackApplicationParams(
+            name="test-app", revision_id=5, dry_run=False, instance="primary"
+        )
+        result = await rollback_application(params, mocks["ctx"])
+
+        assert "Rollback initiated" in result
+        assert "revision 5" in result
+        assert "get_application_status" in result
+
+    @pytest.mark.asyncio
+    async def test_rollback_application_blocked_read_only(
+        self,
+        server_read_only: dict[str, Any],
+    ):
+        """Test rollback blocked in read-only mode."""
+        from argocd_mcp.server import RollbackApplicationParams, rollback_application
+
+        mocks = server_read_only
+
+        params = RollbackApplicationParams(name="test-app", revision_id=1, instance="primary")
+        result = await rollback_application(params, mocks["ctx"])
+
+        assert "OPERATION BLOCKED" in result
+        assert "read-only" in result
+
+    @pytest.mark.asyncio
+    async def test_rollback_application_handles_error(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Test rollback error handling."""
+        from argocd_mcp.server import RollbackApplicationParams, rollback_application
+
+        mocks = server_with_mocks
+        error = ArgocdError(code=404, message="Application not found")
+        mocks["client"].rollback_application.side_effect = error
+
+        params = RollbackApplicationParams(name="nonexistent", revision_id=1, instance="primary")
+        result = await rollback_application(params, mocks["ctx"])
+
+        assert "ArgoCD API error" in result
+
+
+@pytest.mark.unit
+class TestTerminateSyncTool:
+    """Tests for terminate_sync MCP tool."""
+
+    @pytest.mark.asyncio
+    async def test_terminate_sync_success(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Test terminate_sync succeeds."""
+        from argocd_mcp.server import TerminateSyncParams, terminate_sync
+
+        mocks = server_with_mocks
+        mocks["client"].terminate_sync.return_value = {}
+
+        params = TerminateSyncParams(name="test-app", instance="primary")
+        result = await terminate_sync(params, mocks["ctx"])
+
+        assert "terminated" in result
+        assert "test-app" in result
+        mocks["client"].terminate_sync.assert_called_once_with("test-app")
+
+    @pytest.mark.asyncio
+    async def test_terminate_sync_blocked_read_only(
+        self,
+        server_read_only: dict[str, Any],
+    ):
+        """Test terminate_sync blocked in read-only mode."""
+        from argocd_mcp.server import TerminateSyncParams, terminate_sync
+
+        mocks = server_read_only
+
+        params = TerminateSyncParams(name="test-app", instance="primary")
+        result = await terminate_sync(params, mocks["ctx"])
+
+        assert "OPERATION BLOCKED" in result
+        assert "read-only" in result
+
+    @pytest.mark.asyncio
+    async def test_terminate_sync_handles_error(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Test terminate_sync error handling."""
+        from argocd_mcp.server import TerminateSyncParams, terminate_sync
+
+        mocks = server_with_mocks
+        error = ArgocdError(code=404, message="No operation running")
+        mocks["client"].terminate_sync.side_effect = error
+
+        params = TerminateSyncParams(name="test-app", instance="primary")
+        result = await terminate_sync(params, mocks["ctx"])
+
+        assert "ArgoCD API error" in result
+
+
+@pytest.mark.unit
 class TestSafetyGuardIntegration:
     """Tests for safety guard integration with tools."""
 
