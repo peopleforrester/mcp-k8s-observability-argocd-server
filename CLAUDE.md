@@ -3,9 +3,9 @@
 ## Build/Run/Test Commands
 
 - **Install dependencies**: `uv sync --dev`
-- **Run tests**: `uv run pytest`
-- **Run unit tests only**: `uv run pytest -m unit`
-- **Run integration tests**: `uv run pytest -m integration`
+- **Run tests**: `uv run pytest` (excludes integration tests by default)
+- **Run all tests**: `uv run pytest -m ""` (includes integration tests)
+- **Run integration tests only**: `uv run pytest -m integration`
 - **Lint code**: `uv run ruff check src tests`
 - **Format code**: `uv run ruff format src tests`
 - **Type check**: `uv run mypy src`

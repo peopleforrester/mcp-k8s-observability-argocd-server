@@ -38,7 +38,7 @@ dependencies = [
     "mcp>=1.26.0",
     "httpx>=0.28.0",
     "pydantic>=2.12.0",
-    "pydantic-settings>=2.7.0",
+    "pydantic-settings>=2.10.0",
     "structlog>=25.1.0",
     "tenacity>=9.0.0",
 ]
@@ -80,11 +80,11 @@ addopts = [
     "--strict-markers",
     "--tb=short",
     "-ra",
+    "-m not integration",
 ]
 markers = [
     "unit: Unit tests (fast, no external dependencies)",
     "integration: Integration tests (require ArgoCD API)",
-    "e2e: End-to-end tests (require full cluster)",
     "slow: Slow tests that should be run less frequently",
 ]
 filterwarnings = [
