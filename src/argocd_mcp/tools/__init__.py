@@ -1,20 +1,17 @@
-# ABOUTME: Tools package initialization for ArgoCD MCP Server
-# ABOUTME: Contains all MCP tool implementations organized by category
+# ABOUTME: Tools package placeholder for ArgoCD MCP Server
+# ABOUTME: Reserved for future modularization of tool implementations
 
 """
-ArgoCD MCP Tools Package
+ArgoCD MCP Tools Package (placeholder).
 
-Tools are organized into tiers following progressive disclosure principles:
+All MCP tool implementations currently reside in server.py, organized by tier:
 
-Tier 1 (Essential Read): Always available
-    - applications.py: list, get, status, diff, history, logs, events, tree
+Tier 1 (Essential Read): list_applications, get_application, get_application_status,
+    get_application_diff, get_application_history, get_application_logs,
+    diagnose_sync_failure, list_clusters, list_projects
+Tier 2 (Write Operations): sync_application, refresh_application,
+    rollback_application, terminate_sync
+Tier 3 (Destructive): delete_application
 
-Tier 2 (Write Operations): Require --enable-writes
-    - sync.py: sync, rollback, refresh, terminate
-
-Tier 3 (Destructive): Require explicit confirmation
-    - delete.py: delete with cascade options
-
-Tier 4 (Admin): Separate toolset
-    - admin.py: create, update, project management
+This package is reserved for future modularization if server.py grows too large.
 """

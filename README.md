@@ -260,6 +260,7 @@ For the full security model deep-dive, see [docs/SECURITY.md](docs/SECURITY.md).
 | `get_application_diff` | Preview what would change on sync. Look before you leap. |
 | `get_application_history` | View deployment history with commits. "What changed and when?" |
 | `diagnose_sync_failure` | AI-powered troubleshooting. Aggregates logs, events, status into actionable analysis. |
+| `get_application_logs` | Get pod logs for debugging. Filter by pod, container, and time range. |
 | `list_clusters` | List registered clusters with connection status. |
 | `list_projects` | List ArgoCD projects. |
 
@@ -269,6 +270,8 @@ For the full security model deep-dive, see [docs/SECURITY.md](docs/SECURITY.md).
 |------|--------------|
 | `sync_application` | Sync with dry-run default. Set `dry_run=false` to actually apply. |
 | `refresh_application` | Force manifest refresh from Git. "Did you push? Let me check again." |
+| `rollback_application` | Rollback to a previous deployment. Dry-run by default. |
+| `terminate_sync` | Stop a running sync operation. For when syncs get stuck. |
 
 ### Tier 3: Destructive Operations (Require explicit confirmation)
 
@@ -409,17 +412,17 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 ```
 argocd-mcp-server/
 ├── src/argocd_mcp/
-│   ├── server.py           # FastMCP server with tools and resources
-│   ├── config.py           # Configuration management
-│   ├── tools/              # Tool implementations by tier
-│   ├── resources/          # MCP resources
+│   ├── server.py           # FastMCP server with all tools and resources
+│   ├── config.py           # Configuration management (pydantic-settings)
+│   ├── tools/              # Reserved for future tool modularization
+│   ├── resources/          # Reserved for future resource modularization
 │   └── utils/
 │       ├── client.py       # ArgoCD API client with retry logic
 │       ├── safety.py       # Confirmation patterns, rate limiting
 │       └── logging.py      # Structured logging, audit trail
 ├── tests/
 │   ├── unit/               # Unit tests
-│   ├── integration/        # Integration tests
+│   ├── integration/        # Integration tests (Kind cluster)
 │   └── e2e/                # End-to-end tests
 ├── docs/
 │   ├── TOOLS.md            # Detailed tool documentation

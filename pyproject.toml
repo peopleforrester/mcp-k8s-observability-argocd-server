@@ -41,12 +41,6 @@ dependencies = [
     "pydantic-settings>=2.7.0",
     "structlog>=25.1.0",
     "tenacity>=9.0.0",
-    "prometheus-client>=0.21.0",
-]
-
-[project.optional-dependencies]
-kubernetes = [
-    "kubernetes>=31.0.0",
 ]
 
 [dependency-groups]
@@ -94,7 +88,7 @@ markers = [
     "slow: Slow tests that should be run less frequently",
 ]
 filterwarnings = [
-    "ignore::DeprecationWarning",
+    "ignore::DeprecationWarning:pytest_asyncio",
 ]
 
 [tool.coverage.run]
@@ -165,9 +159,9 @@ module = ["tests.*"]
 disallow_untyped_defs = false
 
 [[tool.mypy.overrides]]
-module = ["kubernetes.*", "respx.*"]
+module = ["respx.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["mcp.*"]
-ignore_errors = true
+ignore_missing_imports = true

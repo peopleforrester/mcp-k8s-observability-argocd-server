@@ -73,13 +73,16 @@ TIER 1: Essential Read Operations (Always Available)
 ├── get_application_status - Quick status check
 ├── get_application_diff - Preview sync changes
 ├── get_application_history - Deployment history
+├── get_application_logs - Get pod logs for debugging
 ├── diagnose_sync_failure - AI-powered troubleshooting
 ├── list_clusters        - List registered clusters
 └── list_projects        - List ArgoCD projects
 
 TIER 2: Write Operations (Require MCP_READ_ONLY=false)
 ├── sync_application     - Sync with dry-run by default
-└── refresh_application  - Refresh manifests from Git
+├── refresh_application  - Refresh manifests from Git
+├── rollback_application - Rollback to previous revision
+└── terminate_sync       - Stop a running sync operation
 
 TIER 3: Destructive Operations (Require confirmation)
 └── delete_application   - Delete with double-confirmation
@@ -933,6 +936,71 @@ async def diagnose_sync_failure(params: DiagnoseSyncFailureParams, ctx: MCPConte
         return str(e)
 
 
+class GetApplicationLogsParams(BaseModel):
+    """Parameters for get_application_logs tool."""
+
+    name: str = Field(description="Application name")
+    pod_name: str | None = Field(default=None, description="Specific pod name (optional)")
+    container: str | None = Field(
+        default=None, description="Container name for multi-container pods (optional)"
+    )
+    tail_lines: int = Field(default=100, description="Number of log lines to return", ge=1, le=1000)
+    since_seconds: int | None = Field(
+        default=None, description="Only return logs newer than this many seconds"
+    )
+    instance: str = Field(default="primary", description="ArgoCD instance name")
+
+
+@mcp.tool()
+async def get_application_logs(params: GetApplicationLogsParams, ctx: MCPContext) -> str:
+    """
+    Get pod logs for an application.
+
+    Retrieves logs from pods managed by the application. Useful for
+    debugging application issues, checking startup errors, or
+    monitoring runtime behavior.
+    """
+    set_correlation_id(ctx.request_id if hasattr(ctx, "request_id") else "")
+
+    blocked = get_safety_guard().check_read_operation("get_application_logs")
+    if blocked:
+        get_audit_logger().log_blocked("get_application_logs", params.name, blocked.reason)
+        return blocked.format_message()
+
+    try:
+        client = get_client(params.instance)
+
+        await ctx.report_progress(0, 1, f"Fetching logs for {params.name}")
+
+        logs = await client.get_logs(
+            name=params.name,
+            pod_name=params.pod_name,
+            container=params.container,
+            tail_lines=params.tail_lines,
+            since_seconds=params.since_seconds,
+        )
+
+        get_audit_logger().log_read("get_application_logs", params.name)
+
+        await ctx.report_progress(1, 1, "Complete")
+
+        if not logs:
+            return f"No logs found for application '{params.name}'"
+
+        header = f"Logs for '{params.name}'"
+        if params.pod_name:
+            header += f" (pod: {params.pod_name})"
+        if params.container:
+            header += f" (container: {params.container})"
+        header += f" (last {params.tail_lines} lines):"
+
+        return f"{header}\n\n{logs}"
+
+    except ArgocdError as e:
+        get_audit_logger().log_error("get_application_logs", params.name, str(e))
+        return str(e)
+
+
 class ListClustersParams(BaseModel):
     """Parameters for list_clusters tool."""
 
@@ -1170,6 +1238,110 @@ async def refresh_application(params: RefreshApplicationParams, ctx: MCPContext)
 
     except ArgocdError as e:
         get_audit_logger().log_error("refresh_application", params.name, str(e))
+        return str(e)
+
+
+class RollbackApplicationParams(BaseModel):
+    """Parameters for rollback_application tool."""
+
+    name: str = Field(description="Application name")
+    revision_id: int = Field(description="History revision ID to rollback to")
+    dry_run: bool = Field(
+        default=True, description="Preview rollback without applying (default: true)"
+    )
+    instance: str = Field(default="primary", description="ArgoCD instance name")
+
+
+@mcp.tool()
+async def rollback_application(params: RollbackApplicationParams, ctx: MCPContext) -> str:
+    """
+    Rollback application to a previous deployment revision.
+
+    Use get_application_history to find revision IDs, then rollback
+    to a known-good state. Defaults to dry-run mode for safety.
+    """
+    set_correlation_id(ctx.request_id if hasattr(ctx, "request_id") else "")
+
+    blocked = get_safety_guard().check_write_operation("rollback_application")
+    if blocked:
+        get_audit_logger().log_blocked("rollback_application", params.name, blocked.reason)
+        return blocked.format_message()
+
+    try:
+        client = get_client(params.instance)
+
+        mode = "[DRY-RUN] " if params.dry_run else ""
+        await ctx.report_progress(0, 1, f"{mode}Rolling back {params.name}")
+
+        await client.rollback_application(
+            name=params.name,
+            revision_id=params.revision_id,
+            dry_run=params.dry_run,
+        )
+
+        if params.dry_run:
+            get_audit_logger().log_write("rollback_application", params.name, "dry_run")
+            return (
+                f"Dry-run rollback complete for '{params.name}' to revision {params.revision_id}\n\n"
+                f"To apply the rollback:\n"
+                f"  rollback_application(name='{params.name}', "
+                f"revision_id={params.revision_id}, dry_run=false)"
+            )
+        else:
+            get_audit_logger().log_write(
+                "rollback_application",
+                params.name,
+                "initiated",
+                {"revision_id": params.revision_id},
+            )
+            return (
+                f"Rollback initiated for '{params.name}' to revision {params.revision_id}\n\n"
+                f"Use get_application_status to monitor progress."
+            )
+
+    except ArgocdError as e:
+        get_audit_logger().log_error("rollback_application", params.name, str(e))
+        return str(e)
+
+
+class TerminateSyncParams(BaseModel):
+    """Parameters for terminate_sync tool."""
+
+    name: str = Field(description="Application name")
+    instance: str = Field(default="primary", description="ArgoCD instance name")
+
+
+@mcp.tool()
+async def terminate_sync(params: TerminateSyncParams, ctx: MCPContext) -> str:
+    """
+    Terminate an ongoing sync operation.
+
+    Stops a sync that's currently in progress. Useful when a sync
+    is stuck, taking too long, or was triggered by mistake.
+    """
+    set_correlation_id(ctx.request_id if hasattr(ctx, "request_id") else "")
+
+    blocked = get_safety_guard().check_write_operation("terminate_sync")
+    if blocked:
+        get_audit_logger().log_blocked("terminate_sync", params.name, blocked.reason)
+        return blocked.format_message()
+
+    try:
+        client = get_client(params.instance)
+
+        await ctx.report_progress(0, 1, f"Terminating sync for {params.name}")
+
+        await client.terminate_sync(params.name)
+
+        get_audit_logger().log_write("terminate_sync", params.name, "terminated")
+
+        return (
+            f"Sync operation terminated for '{params.name}'\n\n"
+            f"Use get_application_status to check current state."
+        )
+
+    except ArgocdError as e:
+        get_audit_logger().log_error("terminate_sync", params.name, str(e))
         return str(e)
 
 
