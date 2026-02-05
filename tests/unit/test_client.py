@@ -286,14 +286,12 @@ class TestArgocdClient:
         assert result["api_key"] == "***MASKED***"
         assert result["name"] == "app"
 
-    def test_context_manager_not_entered(self, mock_argocd_instance: ArgocdInstance):
+    async def test_context_manager_not_entered(self, mock_argocd_instance: ArgocdInstance):
         """Test that client raises when not in context manager."""
         client = ArgocdClient(mock_argocd_instance)
 
         with pytest.raises(RuntimeError, match="not initialized"):
-            import asyncio
-
-            asyncio.get_event_loop().run_until_complete(client._request("GET", "/applications"))
+            await client._request("GET", "/applications")
 
 
 @pytest.mark.unit

@@ -422,8 +422,7 @@ argocd-mcp-server/
 │       └── logging.py      # Structured logging, audit trail
 ├── tests/
 │   ├── unit/               # Unit tests
-│   ├── integration/        # Integration tests (Kind cluster)
-│   └── e2e/                # End-to-end tests
+│   └── integration/        # Integration tests (Kind cluster)
 ├── docs/
 │   ├── TOOLS.md            # Detailed tool documentation
 │   └── SECURITY.md         # Security model deep-dive
