@@ -11,12 +11,12 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 from mcp.server.fastmcp import Context, FastMCP
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from argocd_mcp.config import ServerSettings, load_settings
 from argocd_mcp.utils.client import ArgocdClient, ArgocdError
 from argocd_mcp.utils.logging import AuditLogger, configure_logging, set_correlation_id
-from argocd_mcp.utils.safety import ConfirmationRequired, SafetyGuard
+from argocd_mcp.utils.safety import ConfirmationRequired, OperationBlocked, SafetyGuard
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -689,13 +689,16 @@ async def list_projects(params: ListProjectsParams, ctx: MCPContext) -> str:
 
 
 class SyncApplicationParams(BaseModel):
-    """Parameters for sync_application tool."""
+    """Parameters for sync_application tool (non-destructive sync only)."""
+
+    # Reject unknown fields so agents get a clear error if they pass legacy `prune`
+    # or mistype a field name, rather than having the typo silently dropped.
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(description="Application name")
     dry_run: bool = Field(
         default=True, description="Preview changes without applying (default: true)"
     )
-    prune: bool = Field(default=False, description="Delete resources not in Git (destructive)")
     force: bool = Field(default=False, description="Force sync even if already synced")
     revision: str | None = Field(default=None, description="Git revision to sync to")
     instance: str = Field(default="primary", description="ArgoCD instance name")
@@ -704,37 +707,20 @@ class SyncApplicationParams(BaseModel):
 @mcp.tool()
 async def sync_application(params: SyncApplicationParams, ctx: MCPContext) -> str:
     """
-    Synchronize application with Git repository.
+    Synchronize application with Git repository (non-destructive).
 
     By default runs in dry-run mode showing what would change.
-    Set dry_run=false to apply changes. Use prune=true to remove
-    resources deleted from Git (destructive, requires confirmation).
+    Set dry_run=false to apply changes. This tool NEVER prunes resources —
+    for sync-with-prune (which deletes cluster resources missing from Git),
+    use the Tier-3 `sync_application_with_prune` tool, which requires
+    explicit confirmation.
     """
     set_correlation_id(ctx.request_id if hasattr(ctx, "request_id") else "")
 
-    if params.prune and not params.dry_run:
-        blocked = get_safety_guard().check_destructive_operation(
-            "sync_with_prune", params.name, confirmed=False
-        )
-        if blocked:
-            if isinstance(blocked, ConfirmationRequired):
-                get_audit_logger().log_blocked(
-                    "sync_application", params.name, "prune requires confirmation"
-                )
-                return (
-                    f"PRUNE REQUIRES CONFIRMATION\n\n"
-                    f"Syncing '{params.name}' with prune=true will DELETE resources "
-                    f"that exist in the cluster but not in Git.\n\n"
-                    f"First, run with dry_run=true to preview deletions:\n"
-                    f"  sync_application(name='{params.name}', dry_run=true, prune=true)\n\n"
-                    f"For pruning, use the destructive sync tool with confirmation."
-                )
-            return blocked.format_message()
-    else:
-        blocked = get_safety_guard().check_write_operation("sync_application")
-        if blocked:
-            get_audit_logger().log_blocked("sync_application", params.name, blocked.reason)
-            return blocked.format_message()
+    blocked = get_safety_guard().check_write_operation("sync_application")
+    if blocked:
+        get_audit_logger().log_blocked("sync_application", params.name, blocked.reason)
+        return blocked.format_message()
 
     try:
         client = get_client(params.instance)
@@ -745,7 +731,7 @@ async def sync_application(params: SyncApplicationParams, ctx: MCPContext) -> st
         await client.sync_application(
             name=params.name,
             dry_run=params.dry_run,
-            prune=params.prune,
+            prune=False,
             force=params.force,
             revision=params.revision,
         )
@@ -759,19 +745,17 @@ async def sync_application(params: SyncApplicationParams, ctx: MCPContext) -> st
                 f"Operation would affect resources. To apply:\n"
                 f"  sync_application(name='{params.name}', dry_run=false)"
             )
-        else:
-            get_audit_logger().log_write(
-                "sync_application",
-                params.name,
-                "initiated",
-                {"prune": params.prune, "force": params.force},
-            )
-            return (
-                f"Sync initiated for '{params.name}'\n"
-                f"Revision: {params.revision or 'HEAD'}\n"
-                f"Prune: {params.prune}\n\n"
-                f"Use get_application_status to monitor progress."
-            )
+        get_audit_logger().log_write(
+            "sync_application",
+            params.name,
+            "initiated",
+            {"force": params.force},
+        )
+        return (
+            f"Sync initiated for '{params.name}'\n"
+            f"Revision: {params.revision or 'HEAD'}\n\n"
+            f"Use get_application_status to monitor progress."
+        )
 
     except ArgocdError as e:
         get_audit_logger().log_error("sync_application", params.name, str(e))
@@ -998,6 +982,111 @@ async def delete_application(params: DeleteApplicationParams, ctx: MCPContext) -
 
     except ArgocdError as e:
         get_audit_logger().log_error("delete_application", params.name, str(e))
+        return str(e)
+
+
+class SyncApplicationWithPruneParams(BaseModel):
+    """Parameters for sync_application_with_prune tool (Tier 3 — destructive)."""
+
+    name: str = Field(description="Application name")
+    dry_run: bool = Field(
+        default=True, description="Preview deletions without applying (default: true)"
+    )
+    force: bool = Field(default=False, description="Force sync even if already synced")
+    revision: str | None = Field(default=None, description="Git revision to sync to")
+    confirm: bool = Field(
+        default=False, description="Must be true to execute live prune (dry_run=false)"
+    )
+    confirm_name: str | None = Field(
+        default=None,
+        description="Type application name to confirm live prune (exact match, case-sensitive)",
+    )
+    instance: str = Field(default="primary", description="ArgoCD instance name")
+
+
+@mcp.tool()
+async def sync_application_with_prune(
+    params: SyncApplicationWithPruneParams, ctx: MCPContext
+) -> str:
+    """
+    Synchronize application and PRUNE cluster resources missing from Git (DESTRUCTIVE).
+
+    This always passes prune=true to the ArgoCD API. Resources present in the
+    cluster but absent from the desired Git state will be DELETED on a live run.
+
+    - dry_run=true (default): preview which resources would be pruned; no confirmation needed.
+    - dry_run=false: requires confirm=true AND confirm_name matching the application name.
+
+    Requires MCP_READ_ONLY=false and MCP_DISABLE_DESTRUCTIVE=false.
+    """
+    set_correlation_id(ctx.request_id if hasattr(ctx, "request_id") else "")
+
+    if params.dry_run:
+        blocked = get_safety_guard().check_write_operation("sync_application_with_prune")
+        if blocked:
+            get_audit_logger().log_blocked(
+                "sync_application_with_prune", params.name, blocked.reason
+            )
+            return blocked.format_message()
+    else:
+        destructive = get_safety_guard().check_destructive_operation(
+            "sync_with_prune",
+            params.name,
+            confirmed=params.confirm,
+            confirm_name=params.confirm_name,
+        )
+        if destructive:
+            get_audit_logger().log_blocked(
+                "sync_application_with_prune",
+                params.name,
+                destructive.reason
+                if isinstance(destructive, OperationBlocked)
+                else "confirmation required",
+            )
+            return destructive.format_message()
+
+    try:
+        client = get_client(params.instance)
+
+        mode = "[DRY-RUN] " if params.dry_run else ""
+        await ctx.report_progress(0, 2, f"{mode}Initiating sync-with-prune for {params.name}")
+
+        await client.sync_application(
+            name=params.name,
+            dry_run=params.dry_run,
+            prune=True,
+            force=params.force,
+            revision=params.revision,
+        )
+
+        await ctx.report_progress(2, 2, "Sync initiated")
+
+        if params.dry_run:
+            get_audit_logger().log_write(
+                "sync_application_with_prune", params.name, "dry_run"
+            )
+            return (
+                f"Dry-run sync-with-prune complete for '{params.name}'\n\n"
+                f"Review the plan carefully. To apply (will DELETE resources not in Git):\n"
+                f"  sync_application_with_prune("
+                f"name='{params.name}', dry_run=false, "
+                f"confirm=true, confirm_name='{params.name}')"
+            )
+        get_audit_logger().log_write(
+            "sync_application_with_prune",
+            params.name,
+            "initiated",
+            {"force": params.force, "prune": True},
+        )
+        return (
+            f"Sync-with-prune initiated for '{params.name}'\n"
+            f"Revision: {params.revision or 'HEAD'}\n"
+            f"Prune: true\n\n"
+            f"Use get_application_status to monitor progress."
+        )
+
+    except ArgocdError as e:
+        get_audit_logger().log_error("sync_application_with_prune", params.name, str(e))
         return str(e)
 
 

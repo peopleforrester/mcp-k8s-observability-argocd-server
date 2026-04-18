@@ -60,7 +60,7 @@ Even when write operations are enabled, destructive operations remain blocked by
 
 **Blocked Operations:**
 - `delete_application`
-- `sync_application` with `prune=true`
+- `sync_application_with_prune` (dedicated Tier-3 tool; `sync_application` no longer accepts a prune parameter)
 - Any operation that removes resources from the cluster
 
 **Error Response:**

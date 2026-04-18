@@ -1166,26 +1166,19 @@ class TestSyncApplicationTool:
         assert "read-only" in result
         mocks["logger"].log_blocked.assert_called()
 
-    @pytest.mark.asyncio
-    async def test_sync_application_prune_requires_confirmation(
-        self,
-        server_with_mocks: dict[str, Any],
-    ):
-        """Test sync with prune requires confirmation."""
-        from argocd_mcp.server import SyncApplicationParams, sync_application
+    def test_sync_application_params_rejects_prune_field(self):
+        """prune is no longer a valid parameter on SyncApplicationParams.
 
-        mocks = server_with_mocks
+        It moved to the dedicated Tier-3 sync_application_with_prune tool.
+        """
+        from pydantic import ValidationError
 
-        params = SyncApplicationParams(
-            name="test-app",
-            dry_run=False,
-            prune=True,
-            instance="primary",
-        )
-        result = await sync_application(params, mocks["ctx"])
+        from argocd_mcp.server import SyncApplicationParams
 
-        assert "PRUNE REQUIRES CONFIRMATION" in result
-        assert "DELETE resources" in result
+        with pytest.raises(ValidationError):
+            SyncApplicationParams.model_validate(
+                {"name": "test-app", "dry_run": False, "prune": True}
+            )
 
     @pytest.mark.asyncio
     async def test_sync_application_handles_error(
@@ -1460,6 +1453,217 @@ class TestDeleteApplicationTool:
 
         # Should still show confirmation required even if get_application fails
         assert "CONFIRMATION REQUIRED" in result
+
+
+@pytest.mark.unit
+class TestSyncApplicationWithPruneTool:
+    """Tests for sync_application_with_prune MCP tool (Tier 3)."""
+
+    @pytest.mark.asyncio
+    async def test_dry_run_no_confirmation_needed(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Dry-run preview must execute without confirm/confirm_name."""
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        mocks = server_with_mocks
+        mocks["client"].sync_application.return_value = {"status": "ok"}
+
+        params = SyncApplicationWithPruneParams(
+            name="test-app", dry_run=True, instance="primary"
+        )
+        result = await sync_application_with_prune(params, mocks["ctx"])
+
+        assert "Dry-run sync-with-prune complete" in result
+        assert "confirm=true" in result
+        mocks["client"].sync_application.assert_called_once_with(
+            name="test-app",
+            dry_run=True,
+            prune=True,
+            force=False,
+            revision=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_live_without_confirm_is_blocked(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Live prune without confirm=true must return ConfirmationRequired."""
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        mocks = server_with_mocks
+
+        params = SyncApplicationWithPruneParams(
+            name="test-app", dry_run=False, instance="primary"
+        )
+        result = await sync_application_with_prune(params, mocks["ctx"])
+
+        assert "CONFIRMATION REQUIRED" in result
+        mocks["client"].sync_application.assert_not_called()
+        mocks["logger"].log_blocked.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_live_with_name_mismatch_is_blocked(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """confirm_name must match target exactly; mismatch returns helpful error."""
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        mocks = server_with_mocks
+
+        params = SyncApplicationWithPruneParams(
+            name="test-app",
+            dry_run=False,
+            confirm=True,
+            confirm_name="Test-App",  # wrong case
+            instance="primary",
+        )
+        result = await sync_application_with_prune(params, mocks["ctx"])
+
+        assert "CONFIRMATION REQUIRED" in result
+        assert "case and whitespace are significant" in result
+        mocks["client"].sync_application.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_live_with_confirmation_executes(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Full confirmation path executes the sync with prune=true."""
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        mocks = server_with_mocks
+        mocks["client"].sync_application.return_value = {"status": "ok"}
+
+        params = SyncApplicationWithPruneParams(
+            name="test-app",
+            dry_run=False,
+            confirm=True,
+            confirm_name="test-app",
+            revision="main",
+            instance="primary",
+        )
+        result = await sync_application_with_prune(params, mocks["ctx"])
+
+        assert "Sync-with-prune initiated" in result
+        assert "Revision: main" in result
+        assert "Prune: true" in result
+        mocks["client"].sync_application.assert_called_once_with(
+            name="test-app",
+            dry_run=False,
+            prune=True,
+            force=False,
+            revision="main",
+        )
+
+    @pytest.mark.asyncio
+    async def test_live_blocked_read_only(
+        self,
+        server_read_only: dict[str, Any],
+    ):
+        """Read-only mode blocks the destructive Tier-3 operation."""
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        mocks = server_read_only
+
+        params = SyncApplicationWithPruneParams(
+            name="test-app",
+            dry_run=False,
+            confirm=True,
+            confirm_name="test-app",
+            instance="primary",
+        )
+        result = await sync_application_with_prune(params, mocks["ctx"])
+
+        assert "OPERATION BLOCKED" in result
+        assert "read-only" in result
+
+    @pytest.mark.asyncio
+    async def test_live_blocked_destructive_disabled(
+        self,
+        mock_argocd_client: AsyncMock,
+        mock_ctx: MagicMock,
+    ):
+        """MCP_DISABLE_DESTRUCTIVE=true blocks live sync-with-prune."""
+        from argocd_mcp import server
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        settings = SecuritySettings(read_only=False, disable_destructive=True)
+        guard = SafetyGuard(settings)
+
+        original_clients = server._clients
+        original_guard = server._safety_guard
+        original_logger = server._audit_logger
+
+        server._clients = {"primary": mock_argocd_client}
+        server._safety_guard = guard
+        server._audit_logger = MagicMock(spec=AuditLogger)
+
+        try:
+            params = SyncApplicationWithPruneParams(
+                name="test-app",
+                dry_run=False,
+                confirm=True,
+                confirm_name="test-app",
+                instance="primary",
+            )
+            result = await sync_application_with_prune(params, mock_ctx)
+
+            assert "OPERATION BLOCKED" in result
+            assert "Destructive operations" in result
+            mock_argocd_client.sync_application.assert_not_called()
+        finally:
+            server._clients = original_clients
+            server._safety_guard = original_guard
+            server._audit_logger = original_logger
+
+    @pytest.mark.asyncio
+    async def test_handles_api_error(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """ArgocdError on the API call surfaces as the tool return value."""
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        mocks = server_with_mocks
+        error = ArgocdError(code=500, message="Sync failed")
+        mocks["client"].sync_application.side_effect = error
+
+        params = SyncApplicationWithPruneParams(
+            name="test-app",
+            dry_run=False,
+            confirm=True,
+            confirm_name="test-app",
+            instance="primary",
+        )
+        result = await sync_application_with_prune(params, mocks["ctx"])
+
+        assert "ArgoCD API error" in result
+        assert "500" in result
 
 
 @pytest.mark.unit
