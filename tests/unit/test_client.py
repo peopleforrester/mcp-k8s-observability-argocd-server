@@ -286,6 +286,55 @@ class TestArgocdClient:
         assert result["api_key"] == "***MASKED***"
         assert result["name"] == "app"
 
+    def test_mask_response_camelcase_keys(self, mock_argocd_instance: ArgocdInstance):
+        """camelCase sensitive keys (e.g. ArgoCD OIDC config) must be masked."""
+        client = ArgocdClient(mock_argocd_instance)
+
+        data = {
+            "clientSecret": "shh",
+            "accessToken": "abc",
+            "bearerToken": "xyz",
+            "clientId": "visible-id",
+        }
+        result = client._mask_response(data)
+
+        assert result["clientSecret"] == "***MASKED***"
+        assert result["accessToken"] == "***MASKED***"
+        assert result["bearerToken"] == "***MASKED***"
+        # clientId has no sensitive substring — stays visible
+        assert result["clientId"] == "visible-id"
+
+    def test_mask_response_nested_camelcase(self, mock_argocd_instance: ArgocdInstance):
+        """Nested camelCase secrets (oidcConfig.clientSecret) must be masked."""
+        client = ArgocdClient(mock_argocd_instance)
+
+        data = {"oidcConfig": {"clientSecret": "shh", "issuer": "https://auth.example"}}
+        result = client._mask_response(data)
+
+        assert result["oidcConfig"]["clientSecret"] == "***MASKED***"
+        assert result["oidcConfig"]["issuer"] == "https://auth.example"
+
+    def test_mask_response_kebab_case_keys(self, mock_argocd_instance: ArgocdInstance):
+        """kebab-case keys also match the substring predicate."""
+        client = ArgocdClient(mock_argocd_instance)
+
+        data = {"api-key": "sk-xyz", "x-bearer-token": "tok"}
+        result = client._mask_response(data)
+
+        assert result["api-key"] == "***MASKED***"
+        assert result["x-bearer-token"] == "***MASKED***"
+
+    def test_mask_response_negative_non_sensitive_keys(
+        self, mock_argocd_instance: ArgocdInstance
+    ):
+        """Keys without sensitive substrings are not masked."""
+        client = ArgocdClient(mock_argocd_instance)
+
+        data = {"name": "app", "namespace": "argocd", "clientId": "id-1"}
+        result = client._mask_response(data)
+
+        assert result == data
+
     async def test_context_manager_not_entered(self, mock_argocd_instance: ArgocdInstance):
         """Test that client raises when not in context manager."""
         client = ArgocdClient(mock_argocd_instance)

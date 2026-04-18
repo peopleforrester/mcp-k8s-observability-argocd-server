@@ -124,6 +124,55 @@ class TestSafetyGuard:
         )
         assert isinstance(result, ConfirmationRequired)
 
+    def test_destructive_missing_confirm_message_is_actionable(self, safety_guard: SafetyGuard):
+        """confirmed=False should yield the original two-parameter instruction."""
+        result = safety_guard.check_destructive_operation(
+            "delete_application",
+            "test-app",
+            confirmed=False,
+        )
+        assert isinstance(result, ConfirmationRequired)
+        assert "confirm=true" in result.confirmation_instructions
+        assert "confirm_name='test-app'" in result.confirmation_instructions
+
+    def test_destructive_missing_confirm_name_message(self, safety_guard: SafetyGuard):
+        """confirmed=True but confirm_name=None must explain which param is missing."""
+        result = safety_guard.check_destructive_operation(
+            "delete_application",
+            "test-app",
+            confirmed=True,
+            confirm_name=None,
+        )
+        assert isinstance(result, ConfirmationRequired)
+        assert "confirm_name is missing" in result.confirmation_instructions
+        assert "test-app" in result.confirmation_instructions
+
+    def test_destructive_name_mismatch_message_calls_out_exactness(
+        self, safety_guard: SafetyGuard
+    ):
+        """Name mismatch must tell the agent matching is exact."""
+        result = safety_guard.check_destructive_operation(
+            "delete_application",
+            "test-app",
+            confirmed=True,
+            confirm_name="Test-App",
+        )
+        assert isinstance(result, ConfirmationRequired)
+        assert "does not match" in result.confirmation_instructions
+        assert "case and whitespace are significant" in result.confirmation_instructions
+        assert "'Test-App'" in result.confirmation_instructions
+        assert "'test-app'" in result.confirmation_instructions
+
+    def test_destructive_whitespace_mismatch_blocked(self, safety_guard: SafetyGuard):
+        """Trailing whitespace in confirm_name must not match."""
+        result = safety_guard.check_destructive_operation(
+            "delete_application",
+            "test-app",
+            confirmed=True,
+            confirm_name="test-app ",
+        )
+        assert isinstance(result, ConfirmationRequired)
+
     def test_destructive_operation_allowed_with_confirmation(self, safety_guard: SafetyGuard):
         """Test that destructive operations allowed with proper confirmation."""
         result = safety_guard.check_destructive_operation(
