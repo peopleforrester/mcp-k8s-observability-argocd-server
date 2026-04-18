@@ -101,3 +101,9 @@ tmp/
 temp/
 .tmp/
 *.tmp
+
+# Session and review artifacts (belong in the engineering journal, not the repo)
+review_*.md
+session_*.md
+plan.md
+todo.md
