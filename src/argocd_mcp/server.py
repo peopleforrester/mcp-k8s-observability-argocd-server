@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import sys
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -95,6 +96,7 @@ __all__ = [
     "ListProjectsParams",
     "RefreshApplicationParams",
     "RollbackApplicationParams",
+    "ServerContext",
     "SyncApplicationParams",
     "SyncApplicationWithPruneParams",
     "TerminateSyncParams",
@@ -119,38 +121,57 @@ __all__ = [
     "terminate_sync",
 ]
 
-# Global state (initialized in lifespan)
-_settings: ServerSettings | None = None
-_clients: dict[str, ArgocdClient] = {}
-_safety_guard: SafetyGuard | None = None
-_audit_logger: AuditLogger | None = None
+@dataclass(slots=True)
+class ServerContext:
+    """Bundle of long-lived server state populated at lifespan startup.
+
+    Single source of truth for handlers and resources, replacing the prior set
+    of four module-level globals. The dataclass is intentionally NOT frozen:
+    `clients` is a mutable dict so tests and lifespan teardown can repopulate
+    or clear it without rebuilding the entire context.
+    """
+
+    settings: ServerSettings
+    safety_guard: SafetyGuard
+    audit_logger: AuditLogger
+    clients: dict[str, ArgocdClient] = field(default_factory=dict)
+
+
+# Single module-level handle, populated in lifespan() and read via the get_*
+# accessors below. Tests inject mocks by replacing _context wholesale.
+_context: ServerContext | None = None
 
 
 @asynccontextmanager
 async def lifespan(_server: FastMCP) -> AsyncIterator[dict[str, Any]]:
     """Manage server lifecycle: load config, connect clients, cleanup on shutdown."""
-    global _settings, _clients, _safety_guard, _audit_logger
+    global _context
 
     logger.info("Starting ArgoCD MCP Server")
 
-    _settings = load_settings()
-    configure_logging(level=_settings.log_level)
-    _safety_guard = SafetyGuard(_settings.security)
-    _audit_logger = AuditLogger(_settings.security.audit_log)
+    settings = load_settings()
+    configure_logging(level=settings.log_level)
+    ctx = ServerContext(
+        settings=settings,
+        safety_guard=SafetyGuard(settings.security),
+        audit_logger=AuditLogger(settings.security.audit_log),
+    )
 
-    for instance in _settings.all_instances:
-        client = ArgocdClient(instance=instance, mask_secrets=_settings.security.mask_secrets)
+    for instance in settings.all_instances:
+        client = ArgocdClient(instance=instance, mask_secrets=settings.security.mask_secrets)
         await client.__aenter__()
-        _clients[instance.name] = client
+        ctx.clients[instance.name] = client
         logger.info("Connected to ArgoCD instance", instance=instance.name, url=instance.url)
 
-    yield {"settings": _settings, "clients": _clients}
+    _context = ctx
+    yield {"settings": ctx.settings, "clients": ctx.clients}
 
-    for name, client in _clients.items():
+    for name, client in ctx.clients.items():
         await client.__aexit__(None, None, None)
         logger.info("Disconnected from ArgoCD instance", instance=name)
 
-    _clients.clear()
+    ctx.clients.clear()
+    _context = None
     logger.info("ArgoCD MCP Server stopped")
 
 
@@ -161,33 +182,35 @@ register_destructive_tools(mcp)
 register_resources(mcp)
 
 
+def get_context() -> ServerContext:
+    """Return the active ServerContext, raising if the server has not started."""
+    if _context is None:
+        raise RuntimeError("Server not initialized")
+    return _context
+
+
 def get_client(instance: str = "primary") -> ArgocdClient:
     """Get ArgoCD client for specified instance."""
-    if instance not in _clients:
-        available = list(_clients.keys())
+    clients = get_context().clients
+    if instance not in clients:
+        available = list(clients.keys())
         raise ValueError(f"Unknown instance '{instance}'. Available: {available}")
-    return _clients[instance]
+    return clients[instance]
 
 
 def get_settings() -> ServerSettings:
     """Get server settings."""
-    if not _settings:
-        raise RuntimeError("Server not initialized")
-    return _settings
+    return get_context().settings
 
 
 def get_safety_guard() -> SafetyGuard:
     """Get safety guard for permission checking."""
-    if not _safety_guard:
-        raise RuntimeError("Server not initialized")
-    return _safety_guard
+    return get_context().safety_guard
 
 
 def get_audit_logger() -> AuditLogger:
     """Get audit logger for recording operations."""
-    if not _audit_logger:
-        raise RuntimeError("Server not initialized")
-    return _audit_logger
+    return get_context().audit_logger
 
 
 
