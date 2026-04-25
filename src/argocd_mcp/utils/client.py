@@ -67,9 +67,9 @@ class ArgocdError(Exception):
         return base
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Application:
-    """ArgoCD Application representation with flattened fields."""
+    """ArgoCD Application representation with flattened fields (immutable value object)."""
 
     name: str
     namespace: str

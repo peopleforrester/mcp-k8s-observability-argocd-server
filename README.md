@@ -41,7 +41,10 @@ We built this because we were tired of:
 
 ## Quick Demo
 
-Here's what a conversation looks like:
+> **Illustrative example** — the conversation below is a hand-written
+> demonstration of how an agent would use these tools, not a transcript of
+> a real session. Tool names, parameters, and responses match what the
+> server actually returns; the surrounding chat is for illustration only.
 
 ```
 You: What applications are failing in production?
