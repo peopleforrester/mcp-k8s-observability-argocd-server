@@ -1,13 +1,10 @@
-# ABOUTME: Resources package initialization for ArgoCD MCP Server
-# ABOUTME: Reserved for future modularization of resource implementations
+# ABOUTME: MCP resource package exposing read-only views of server state
+# ABOUTME: applications submodule registers argocd:// resources with FastMCP
 
-"""
-ArgoCD MCP Resources Package (placeholder).
+"""ArgoCD MCP resource definitions.
 
-All MCP resource implementations currently reside in server.py:
+Modules:
+    applications — argocd://instances and argocd://security text resources
 
-    - argocd://instances: Lists configured ArgoCD instance URLs and projects
-    - argocd://security: Exposes current safety mode (read-only, dry-run defaults)
-
-This package is reserved for future modularization if server.py grows too large.
+server.py calls `register_resources(mcp)` to bind these to the FastMCP instance.
 """
