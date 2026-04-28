@@ -12,7 +12,7 @@ Tools are organized into three tiers based on their potential impact:
 |------|---------------|------------|----------|
 | **Tier 1: Read** | Always available | None | `list_applications`, `diagnose_sync_failure` |
 | **Tier 2: Write** | Requires `MCP_READ_ONLY=false` | Moderate | `sync_application`, `refresh_application` |
-| **Tier 3: Destructive** | Requires confirmation + name match | High | `delete_application` |
+| **Tier 3: Destructive** | Requires confirmation + name match | High | `delete_application`, `sync_application_with_prune` |
 
 ---
 
@@ -339,13 +339,13 @@ These tools modify cluster state. Requires `MCP_READ_ONLY=false`.
 
 ### sync_application
 
-Synchronize application with Git repository.
+Synchronize application with Git repository (non-destructive).
 
 **When to use:** Deploying changes, forcing a resync, applying updates.
 
 **Safety Features:**
 - **Dry-run by default**: Set `dry_run=false` to actually apply
-- **Prune protection**: Using `prune=true` triggers additional confirmation requirements
+- **No prune**: This tool NEVER deletes cluster resources missing from Git. For sync-with-prune, use the Tier-3 [`sync_application_with_prune`](#sync_application_with_prune) tool.
 - **Audit logging**: All sync operations are logged
 
 **Parameters:**
@@ -354,10 +354,11 @@ Synchronize application with Git repository.
 |-----------|------|----------|---------|-------------|
 | `name` | string | Yes | - | Application name |
 | `dry_run` | boolean | No | `true` | Preview changes without applying |
-| `prune` | boolean | No | `false` | Delete resources not in Git (destructive!) |
 | `force` | boolean | No | `false` | Force sync even if already synced |
 | `revision` | string | No | None | Git revision to sync to |
 | `instance` | string | No | `"primary"` | ArgoCD instance name |
+
+Extra fields (including the removed `prune` field) are rejected to catch agent typos early.
 
 **Example Usage:**
 
@@ -389,15 +390,11 @@ Operation would affect resources. To apply:
 ```
 Sync initiated for 'backend-api'
 Revision: HEAD
-Prune: false
 
 Use get_application_status to monitor progress.
 ```
 
-**Note on Prune:** Using `prune=true` is considered a destructive operation because it DELETES resources from the cluster that are not present in Git. This requires:
-1. `MCP_READ_ONLY=false`
-2. `MCP_DISABLE_DESTRUCTIVE=false`
-3. Running the operation through the destructive confirmation flow
+**Note on Prune:** To sync with prune (which DELETES cluster resources not in Git), use the dedicated Tier-3 tool [`sync_application_with_prune`](#sync_application_with_prune). It requires `MCP_DISABLE_DESTRUCTIVE=false` plus two-parameter confirmation on live runs.
 
 ---
 
@@ -498,6 +495,78 @@ To proceed, set confirm=true AND confirm_name='old-app'
 ```
 Application 'old-app' deleted successfully.
 Cascade: true
+```
+
+---
+
+### sync_application_with_prune
+
+Synchronize application and PRUNE cluster resources missing from Git. Always passes `prune=true` to the ArgoCD API.
+
+**When to use:** When Git has removed a manifest and you want the cluster to reconcile by deleting the corresponding live resource. This is the correct tool for "apply Git state exactly, including deletions."
+
+**Safety Features:**
+- **Dry-run by default**: Preview which resources would be deleted before committing.
+- **No confirmation for dry-run**: Preview is safe and always runs in dry-run mode without `confirm`/`confirm_name`.
+- **Two-parameter confirmation for live prune**: Live runs (`dry_run=false`) require `confirm=true` AND `confirm_name` matching the application name exactly (case and whitespace sensitive).
+- **Defense-in-depth**: Live runs also require `MCP_READ_ONLY=false` AND `MCP_DISABLE_DESTRUCTIVE=false`.
+- **Audit logging**: All invocations are logged, including dry-runs and blocked attempts.
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | Yes | - | Application name |
+| `dry_run` | boolean | No | `true` | Preview deletions without applying |
+| `force` | boolean | No | `false` | Force sync even if already synced |
+| `revision` | string | No | None | Git revision to sync to |
+| `confirm` | boolean | No | `false` | Must be `true` to execute a live prune |
+| `confirm_name` | string | No | None | Must exactly match `name` for a live prune |
+| `instance` | string | No | `"primary"` | ArgoCD instance name |
+
+**Example Usage:**
+
+```
+# 1. Preview what would be pruned (always safe)
+sync_application_with_prune(name="backend-api")
+
+# 2. Review the response, confirm the plan, then execute live
+sync_application_with_prune(
+    name="backend-api",
+    dry_run=false,
+    confirm=true,
+    confirm_name="backend-api",
+)
+```
+
+**Example Response (dry-run):**
+
+```
+Dry-run sync-with-prune complete for 'backend-api'
+
+Review the plan carefully. To apply (will DELETE resources not in Git):
+  sync_application_with_prune(name='backend-api', dry_run=false, confirm=true, confirm_name='backend-api')
+```
+
+**Example Response (missing confirmation):**
+
+```
+CONFIRMATION REQUIRED: sync_with_prune
+
+Target: backend-api
+Impact: Resources not in Git will be DELETED from cluster
+
+To proceed, set confirm=true AND confirm_name='backend-api'
+```
+
+**Example Response (live sync):**
+
+```
+Sync-with-prune initiated for 'backend-api'
+Revision: HEAD
+Prune: true
+
+Use get_application_status to monitor progress.
 ```
 
 ---

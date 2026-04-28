@@ -41,7 +41,10 @@ We built this because we were tired of:
 
 ## Quick Demo
 
-Here's what a conversation looks like:
+> **Illustrative example** — the conversation below is a hand-written
+> demonstration of how an agent would use these tools, not a transcript of
+> a real session. Tool names, parameters, and responses match what the
+> server actually returns; the surrounding chat is for illustration only.
 
 ```
 You: What applications are failing in production?
@@ -127,7 +130,7 @@ Not everything needs to be visible all the time. We tier our tools:
 |------|--------|----------|
 | **Tier 1** | Always available | `list_applications`, `get_application_status`, `diagnose_sync_failure` |
 | **Tier 2** | Requires `MCP_READ_ONLY=false` | `sync_application`, `refresh_application` |
-| **Tier 3** | Requires confirmation + typing name | `delete_application` |
+| **Tier 3** | Requires confirmation + typing name | `delete_application`, `sync_application_with_prune` |
 
 This isn't bureaucracy. This is respecting that production systems deserve more friction than `rm -rf /`.
 
@@ -278,6 +281,7 @@ For the full security model deep-dive, see [docs/SECURITY.md](docs/SECURITY.md).
 | Tool | What It Does |
 |------|--------------|
 | `delete_application` | Delete application. Requires `confirm=true` AND `confirm_name` matching the app name. We make you type it twice for a reason. |
+| `sync_application_with_prune` | Sync and DELETE cluster resources missing from Git. Dry-run by default. Live runs require `confirm=true` AND `confirm_name` matching the app name. |
 
 For detailed parameter documentation, see [docs/TOOLS.md](docs/TOOLS.md).
 

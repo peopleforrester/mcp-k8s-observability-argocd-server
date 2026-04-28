@@ -1,0 +1,60 @@
+# ABOUTME: Exclude development and build artifacts from Docker build context
+# ABOUTME: Keeps context small; the Dockerfile only COPYs pyproject.toml, README.md, and src/
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Virtual environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Tests, docs, and local dev assets
+tests/
+docs/
+scripts/
+examples/
+kind-config.yaml
+
+# Session / review / planning artifacts
+review_*.md
+session_*.md
+plan.md
+todo.md
+
+# CI and editor
+.github/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (defense in depth)
+.env
+.env.*
+*.pem
+*.key
+secrets/
+credentials/
+argocd-token*
+
+# Logs
+*.log
+logs/
+audit/

@@ -27,22 +27,28 @@ SECRET_PATTERNS = [
     (re.compile(r"(bearer\s+)[^\s\"']+", re.I), r"\1***MASKED***"),
 ]
 
-# Dictionary keys that should have their values masked
-SENSITIVE_KEYS = frozenset(
-    [
-        "token",
-        "password",
-        "secret",
-        "api_key",
-        "apikey",
-        "api-key",
-        "authorization",
-        "auth",
-        "credential",
-        "credentials",
-        "key",
-    ]
+# Substrings that trigger masking when found in a dictionary key (case-insensitive).
+# Using substring matching catches camelCase (clientSecret), snake_case (api_key),
+# and kebab-case (api-key) variants without an exhaustive enumeration. False positives
+# are preferred over leaking — e.g. a key named "description" would NOT match, but
+# "bearerToken" would. See tests/unit/test_client.py for the coverage matrix.
+SENSITIVE_SUBSTRINGS: tuple[str, ...] = (
+    "token",
+    "password",
+    "secret",
+    "credential",
+    "apikey",
+    "api_key",
+    "api-key",
+    "authorization",
+    "bearer",
 )
+
+
+def _is_sensitive_key(key: str) -> bool:
+    """Return True if the key name indicates a sensitive value."""
+    lowered = key.lower()
+    return any(substr in lowered for substr in SENSITIVE_SUBSTRINGS)
 
 
 class ArgocdError(Exception):
@@ -61,9 +67,9 @@ class ArgocdError(Exception):
         return base
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Application:
-    """ArgoCD Application representation with flattened fields."""
+    """ArgoCD Application representation with flattened fields (immutable value object)."""
 
     name: str
     namespace: str
@@ -152,7 +158,7 @@ class ArgocdClient:
         if isinstance(data, dict):
             masked_dict: dict[str, Any] = {}
             for k, v in data.items():
-                if k.lower() in SENSITIVE_KEYS:
+                if _is_sensitive_key(k):
                     masked_dict[k] = "***MASKED***"
                 else:
                     masked_dict[k] = self._mask_response(v)

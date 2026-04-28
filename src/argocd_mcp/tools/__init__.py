@@ -1,17 +1,15 @@
-# ABOUTME: Tools package placeholder for ArgoCD MCP Server
-# ABOUTME: Reserved for future modularization of tool implementations
+# ABOUTME: MCP tool package grouping handlers by safety tier
+# ABOUTME: params/read/write/destructive submodules; server.py wires them to FastMCP
 
-"""
-ArgoCD MCP Tools Package (placeholder).
+"""ArgoCD MCP tool handlers, split by safety tier.
 
-All MCP tool implementations currently reside in server.py, organized by tier:
+Modules:
+    params      — Pydantic parameter models for every tool
+    read        — Tier 1 (always available, read-only)
+    write       — Tier 2 (mutating; requires MCP_READ_ONLY=false)
+    destructive — Tier 3 (destructive; requires confirmation + name match)
 
-Tier 1 (Essential Read): list_applications, get_application, get_application_status,
-    get_application_diff, get_application_history, get_application_logs,
-    diagnose_sync_failure, list_clusters, list_projects
-Tier 2 (Write Operations): sync_application, refresh_application,
-    rollback_application, terminate_sync
-Tier 3 (Destructive): delete_application
-
-This package is reserved for future modularization if server.py grows too large.
+Each tier module exposes a `register_*` function that server.py calls once to
+bind the handlers to the FastMCP instance. Handlers themselves use lazy imports
+to reach server-level accessors, avoiding a circular import.
 """

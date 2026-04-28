@@ -79,6 +79,44 @@ class TestSecuritySettings:
 
 
 @pytest.mark.unit
+class TestSecuritySettingsEnvBinding:
+    """Verify every documented MCP_* env var actually binds to SecuritySettings.
+
+    Guards against silent regressions if pydantic-settings or the env_prefix is
+    ever changed — currently no test proves these wires exist end-to-end.
+    """
+
+    def test_mcp_read_only_binds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MCP_READ_ONLY", "false")
+        assert SecuritySettings().read_only is False
+
+    def test_mcp_mask_secrets_binds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MCP_MASK_SECRETS", "false")
+        assert SecuritySettings().mask_secrets is False
+
+    def test_mcp_disable_destructive_binds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MCP_DISABLE_DESTRUCTIVE", "false")
+        assert SecuritySettings().disable_destructive is False
+
+    def test_mcp_single_cluster_binds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MCP_SINGLE_CLUSTER", "true")
+        assert SecuritySettings().single_cluster is True
+
+    def test_mcp_rate_limit_calls_binds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MCP_RATE_LIMIT_CALLS", "250")
+        assert SecuritySettings().rate_limit_calls == 250
+
+    def test_mcp_rate_limit_window_binds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MCP_RATE_LIMIT_WINDOW", "30")
+        assert SecuritySettings().rate_limit_window == 30
+
+    def test_mcp_audit_log_binds(self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+        audit_path = tmp_path / "audit.log"
+        monkeypatch.setenv("MCP_AUDIT_LOG", str(audit_path))
+        assert SecuritySettings().audit_log == audit_path
+
+
+@pytest.mark.unit
 class TestServerSettings:
     """Tests for ServerSettings configuration."""
 

@@ -74,115 +74,124 @@ from argocd_mcp.utils.logging import AuditLogger
 from argocd_mcp.utils.safety import SafetyGuard
 
 
+def _make_server_context(
+    *,
+    settings: ServerSettings | None = None,
+    safety_guard: SafetyGuard | None = None,
+    audit_logger: Any | None = None,
+    clients: dict[str, Any] | None = None,
+):
+    """Construct a ServerContext for tests, filling unset fields with mocks."""
+    from argocd_mcp.server import ServerContext
+
+    return ServerContext(
+        settings=settings if settings is not None else MagicMock(spec=ServerSettings),
+        safety_guard=safety_guard
+        if safety_guard is not None
+        else SafetyGuard(SecuritySettings()),
+        audit_logger=audit_logger if audit_logger is not None else MagicMock(spec=AuditLogger),
+        clients=clients if clients is not None else {},
+    )
+
+
+@pytest.fixture
+def reset_server_context():
+    """Save and restore server._context around each test that mutates it."""
+    from argocd_mcp import server
+
+    original = server._context
+    yield
+    server._context = original
+
+
 @pytest.mark.unit
 class TestGetClientAndHelpers:
-    """Tests for helper functions."""
+    """Tests for the get_* accessors and ServerContext lifecycle."""
 
-    def test_get_client_returns_client(self):
-        """Test get_client returns correct client instance."""
+    def test_get_client_returns_client(self, reset_server_context):
         from argocd_mcp import server
 
         mock_client = MagicMock()
-        original = server._clients
-        server._clients = {"primary": mock_client, "secondary": MagicMock()}
+        server._context = _make_server_context(
+            clients={"primary": mock_client, "secondary": MagicMock()},
+        )
 
-        try:
-            result = server.get_client("primary")
-            assert result is mock_client
-        finally:
-            server._clients = original
+        assert server.get_client("primary") is mock_client
 
-    def test_get_client_unknown_instance_raises(self):
-        """Test get_client raises for unknown instance."""
+    def test_get_client_unknown_instance_raises(self, reset_server_context):
         from argocd_mcp import server
 
-        original = server._clients
-        server._clients = {"primary": MagicMock()}
+        server._context = _make_server_context(clients={"primary": MagicMock()})
 
-        try:
-            with pytest.raises(ValueError, match="Unknown instance 'unknown'"):
-                server.get_client("unknown")
-        finally:
-            server._clients = original
+        with pytest.raises(ValueError, match="Unknown instance 'unknown'"):
+            server.get_client("unknown")
 
-    def test_get_settings_returns_settings(self, mock_server_settings: ServerSettings):
-        """Test get_settings returns server settings."""
+    def test_get_settings_returns_settings(
+        self, reset_server_context, mock_server_settings: ServerSettings
+    ):
         from argocd_mcp import server
 
-        original = server._settings
-        server._settings = mock_server_settings
+        server._context = _make_server_context(settings=mock_server_settings)
 
-        try:
-            result = server.get_settings()
-            assert result is mock_server_settings
-        finally:
-            server._settings = original
+        assert server.get_settings() is mock_server_settings
 
-    def test_get_settings_raises_if_not_initialized(self):
-        """Test get_settings raises if server not initialized."""
+    def test_get_settings_raises_if_not_initialized(self, reset_server_context):
         from argocd_mcp import server
 
-        original = server._settings
-        server._settings = None
+        server._context = None
 
-        try:
-            with pytest.raises(RuntimeError, match="Server not initialized"):
-                server.get_settings()
-        finally:
-            server._settings = original
+        with pytest.raises(RuntimeError, match="Server not initialized"):
+            server.get_settings()
 
-    def test_get_safety_guard_returns_guard(self, safety_guard: SafetyGuard):
-        """Test get_safety_guard returns safety guard."""
+    def test_get_safety_guard_returns_guard(
+        self, reset_server_context, safety_guard: SafetyGuard
+    ):
         from argocd_mcp import server
 
-        original = server._safety_guard
-        server._safety_guard = safety_guard
+        server._context = _make_server_context(safety_guard=safety_guard)
 
-        try:
-            result = server.get_safety_guard()
-            assert result is safety_guard
-        finally:
-            server._safety_guard = original
+        assert server.get_safety_guard() is safety_guard
 
-    def test_get_safety_guard_raises_if_not_initialized(self):
-        """Test get_safety_guard raises if server not initialized."""
+    def test_get_safety_guard_raises_if_not_initialized(self, reset_server_context):
         from argocd_mcp import server
 
-        original = server._safety_guard
-        server._safety_guard = None
+        server._context = None
 
-        try:
-            with pytest.raises(RuntimeError, match="Server not initialized"):
-                server.get_safety_guard()
-        finally:
-            server._safety_guard = original
+        with pytest.raises(RuntimeError, match="Server not initialized"):
+            server.get_safety_guard()
 
-    def test_get_audit_logger_returns_logger(self):
-        """Test get_audit_logger returns audit logger."""
+    def test_get_audit_logger_returns_logger(self, reset_server_context):
         from argocd_mcp import server
 
         mock_logger = MagicMock()
-        original = server._audit_logger
-        server._audit_logger = mock_logger
+        server._context = _make_server_context(audit_logger=mock_logger)
 
-        try:
-            result = server.get_audit_logger()
-            assert result is mock_logger
-        finally:
-            server._audit_logger = original
+        assert server.get_audit_logger() is mock_logger
 
-    def test_get_audit_logger_raises_if_not_initialized(self):
-        """Test get_audit_logger raises if server not initialized."""
+    def test_get_audit_logger_raises_if_not_initialized(self, reset_server_context):
         from argocd_mcp import server
 
-        original = server._audit_logger
-        server._audit_logger = None
+        server._context = None
 
-        try:
-            with pytest.raises(RuntimeError, match="Server not initialized"):
-                server.get_audit_logger()
-        finally:
-            server._audit_logger = original
+        with pytest.raises(RuntimeError, match="Server not initialized"):
+            server.get_audit_logger()
+
+    def test_get_context_returns_context(self, reset_server_context):
+        """get_context() exposes the ServerContext directly for advanced use."""
+        from argocd_mcp import server
+
+        ctx = _make_server_context()
+        server._context = ctx
+
+        assert server.get_context() is ctx
+
+    def test_get_context_raises_if_not_initialized(self, reset_server_context):
+        from argocd_mcp import server
+
+        server._context = None
+
+        with pytest.raises(RuntimeError, match="Server not initialized"):
+            server.get_context()
 
 
 @pytest.fixture
@@ -203,27 +212,22 @@ def server_with_mocks(
     """Setup server module with mocks for testing tools."""
     from argocd_mcp import server
 
-    # Store original values
-    original_clients = server._clients
-    original_guard = server._safety_guard
-    original_logger = server._audit_logger
-
-    # Setup mocks
-    server._clients = {"primary": mock_argocd_client}
-    server._safety_guard = safety_guard
-    server._audit_logger = MagicMock(spec=AuditLogger)
+    original = server._context
+    audit_logger = MagicMock(spec=AuditLogger)
+    server._context = _make_server_context(
+        safety_guard=safety_guard,
+        audit_logger=audit_logger,
+        clients={"primary": mock_argocd_client},
+    )
 
     yield {
         "client": mock_argocd_client,
         "guard": safety_guard,
-        "logger": server._audit_logger,
+        "logger": audit_logger,
         "ctx": mock_ctx,
     }
 
-    # Restore originals
-    server._clients = original_clients
-    server._safety_guard = original_guard
-    server._audit_logger = original_logger
+    server._context = original
 
 
 @pytest.fixture
@@ -235,24 +239,22 @@ def server_read_only(
     """Setup server module with read-only safety guard."""
     from argocd_mcp import server
 
-    original_clients = server._clients
-    original_guard = server._safety_guard
-    original_logger = server._audit_logger
-
-    server._clients = {"primary": mock_argocd_client}
-    server._safety_guard = read_only_safety_guard
-    server._audit_logger = MagicMock(spec=AuditLogger)
+    original = server._context
+    audit_logger = MagicMock(spec=AuditLogger)
+    server._context = _make_server_context(
+        safety_guard=read_only_safety_guard,
+        audit_logger=audit_logger,
+        clients={"primary": mock_argocd_client},
+    )
 
     yield {
         "client": mock_argocd_client,
         "guard": read_only_safety_guard,
-        "logger": server._audit_logger,
+        "logger": audit_logger,
         "ctx": mock_ctx,
     }
 
-    server._clients = original_clients
-    server._safety_guard = original_guard
-    server._audit_logger = original_logger
+    server._context = original
 
 
 @pytest.mark.unit
@@ -1166,26 +1168,19 @@ class TestSyncApplicationTool:
         assert "read-only" in result
         mocks["logger"].log_blocked.assert_called()
 
-    @pytest.mark.asyncio
-    async def test_sync_application_prune_requires_confirmation(
-        self,
-        server_with_mocks: dict[str, Any],
-    ):
-        """Test sync with prune requires confirmation."""
-        from argocd_mcp.server import SyncApplicationParams, sync_application
+    def test_sync_application_params_rejects_prune_field(self):
+        """prune is no longer a valid parameter on SyncApplicationParams.
 
-        mocks = server_with_mocks
+        It moved to the dedicated Tier-3 sync_application_with_prune tool.
+        """
+        from pydantic import ValidationError
 
-        params = SyncApplicationParams(
-            name="test-app",
-            dry_run=False,
-            prune=True,
-            instance="primary",
-        )
-        result = await sync_application(params, mocks["ctx"])
+        from argocd_mcp.server import SyncApplicationParams
 
-        assert "PRUNE REQUIRES CONFIRMATION" in result
-        assert "DELETE resources" in result
+        with pytest.raises(ValidationError):
+            SyncApplicationParams.model_validate(
+                {"name": "test-app", "dry_run": False, "prune": True}
+            )
 
     @pytest.mark.asyncio
     async def test_sync_application_handles_error(
@@ -1391,13 +1386,22 @@ class TestDeleteApplicationTool:
         )
         guard = SafetyGuard(settings)
 
-        original_clients = server._clients
-        original_guard = server._safety_guard
-        original_logger = server._audit_logger
+        original_context = server._context
 
-        server._clients = {"primary": mock_argocd_client}
-        server._safety_guard = guard
-        server._audit_logger = MagicMock(spec=AuditLogger)
+
+        server._context = _make_server_context(
+
+
+            safety_guard=guard,
+
+
+            audit_logger=MagicMock(spec=AuditLogger),
+
+
+            clients={"primary": mock_argocd_client},
+
+
+        )
 
         try:
             params = DeleteApplicationParams(
@@ -1411,9 +1415,7 @@ class TestDeleteApplicationTool:
             assert "OPERATION BLOCKED" in result
             assert "Destructive operations" in result
         finally:
-            server._clients = original_clients
-            server._safety_guard = original_guard
-            server._audit_logger = original_logger
+            server._context = original_context
 
     @pytest.mark.asyncio
     async def test_delete_application_handles_error(
@@ -1460,6 +1462,224 @@ class TestDeleteApplicationTool:
 
         # Should still show confirmation required even if get_application fails
         assert "CONFIRMATION REQUIRED" in result
+
+
+@pytest.mark.unit
+class TestSyncApplicationWithPruneTool:
+    """Tests for sync_application_with_prune MCP tool (Tier 3)."""
+
+    @pytest.mark.asyncio
+    async def test_dry_run_no_confirmation_needed(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Dry-run preview must execute without confirm/confirm_name."""
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        mocks = server_with_mocks
+        mocks["client"].sync_application.return_value = {"status": "ok"}
+
+        params = SyncApplicationWithPruneParams(
+            name="test-app", dry_run=True, instance="primary"
+        )
+        result = await sync_application_with_prune(params, mocks["ctx"])
+
+        assert "Dry-run sync-with-prune complete" in result
+        assert "confirm=true" in result
+        mocks["client"].sync_application.assert_called_once_with(
+            name="test-app",
+            dry_run=True,
+            prune=True,
+            force=False,
+            revision=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_live_without_confirm_is_blocked(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Live prune without confirm=true must return ConfirmationRequired."""
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        mocks = server_with_mocks
+
+        params = SyncApplicationWithPruneParams(
+            name="test-app", dry_run=False, instance="primary"
+        )
+        result = await sync_application_with_prune(params, mocks["ctx"])
+
+        assert "CONFIRMATION REQUIRED" in result
+        mocks["client"].sync_application.assert_not_called()
+        mocks["logger"].log_blocked.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_live_with_name_mismatch_is_blocked(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """confirm_name must match target exactly; mismatch returns helpful error."""
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        mocks = server_with_mocks
+
+        params = SyncApplicationWithPruneParams(
+            name="test-app",
+            dry_run=False,
+            confirm=True,
+            confirm_name="Test-App",  # wrong case
+            instance="primary",
+        )
+        result = await sync_application_with_prune(params, mocks["ctx"])
+
+        assert "CONFIRMATION REQUIRED" in result
+        assert "case and whitespace are significant" in result
+        mocks["client"].sync_application.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_live_with_confirmation_executes(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """Full confirmation path executes the sync with prune=true."""
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        mocks = server_with_mocks
+        mocks["client"].sync_application.return_value = {"status": "ok"}
+
+        params = SyncApplicationWithPruneParams(
+            name="test-app",
+            dry_run=False,
+            confirm=True,
+            confirm_name="test-app",
+            revision="main",
+            instance="primary",
+        )
+        result = await sync_application_with_prune(params, mocks["ctx"])
+
+        assert "Sync-with-prune initiated" in result
+        assert "Revision: main" in result
+        assert "Prune: true" in result
+        mocks["client"].sync_application.assert_called_once_with(
+            name="test-app",
+            dry_run=False,
+            prune=True,
+            force=False,
+            revision="main",
+        )
+
+    @pytest.mark.asyncio
+    async def test_live_blocked_read_only(
+        self,
+        server_read_only: dict[str, Any],
+    ):
+        """Read-only mode blocks the destructive Tier-3 operation."""
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        mocks = server_read_only
+
+        params = SyncApplicationWithPruneParams(
+            name="test-app",
+            dry_run=False,
+            confirm=True,
+            confirm_name="test-app",
+            instance="primary",
+        )
+        result = await sync_application_with_prune(params, mocks["ctx"])
+
+        assert "OPERATION BLOCKED" in result
+        assert "read-only" in result
+
+    @pytest.mark.asyncio
+    async def test_live_blocked_destructive_disabled(
+        self,
+        mock_argocd_client: AsyncMock,
+        mock_ctx: MagicMock,
+    ):
+        """MCP_DISABLE_DESTRUCTIVE=true blocks live sync-with-prune."""
+        from argocd_mcp import server
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        settings = SecuritySettings(read_only=False, disable_destructive=True)
+        guard = SafetyGuard(settings)
+
+        original_context = server._context
+
+
+        server._context = _make_server_context(
+
+
+            safety_guard=guard,
+
+
+            audit_logger=MagicMock(spec=AuditLogger),
+
+
+            clients={"primary": mock_argocd_client},
+
+
+        )
+
+        try:
+            params = SyncApplicationWithPruneParams(
+                name="test-app",
+                dry_run=False,
+                confirm=True,
+                confirm_name="test-app",
+                instance="primary",
+            )
+            result = await sync_application_with_prune(params, mock_ctx)
+
+            assert "OPERATION BLOCKED" in result
+            assert "Destructive operations" in result
+            mock_argocd_client.sync_application.assert_not_called()
+        finally:
+            server._context = original_context
+
+    @pytest.mark.asyncio
+    async def test_handles_api_error(
+        self,
+        server_with_mocks: dict[str, Any],
+    ):
+        """ArgocdError on the API call surfaces as the tool return value."""
+        from argocd_mcp.server import (
+            SyncApplicationWithPruneParams,
+            sync_application_with_prune,
+        )
+
+        mocks = server_with_mocks
+        error = ArgocdError(code=500, message="Sync failed")
+        mocks["client"].sync_application.side_effect = error
+
+        params = SyncApplicationWithPruneParams(
+            name="test-app",
+            dry_run=False,
+            confirm=True,
+            confirm_name="test-app",
+            instance="primary",
+        )
+        result = await sync_application_with_prune(params, mocks["ctx"])
+
+        assert "ArgoCD API error" in result
+        assert "500" in result
 
 
 @pytest.mark.unit
@@ -1710,13 +1930,22 @@ class TestSafetyGuardIntegration:
         settings = SecuritySettings(rate_limit_calls=1, rate_limit_window=60)
         guard = SafetyGuard(settings)
 
-        original_clients = server._clients
-        original_guard = server._safety_guard
-        original_logger = server._audit_logger
+        original_context = server._context
 
-        server._clients = {"primary": mock_argocd_client}
-        server._safety_guard = guard
-        server._audit_logger = MagicMock(spec=AuditLogger)
+
+        server._context = _make_server_context(
+
+
+            safety_guard=guard,
+
+
+            audit_logger=MagicMock(spec=AuditLogger),
+
+
+            clients={"primary": mock_argocd_client},
+
+
+        )
 
         try:
             params = ListApplicationsParams(instance="primary")
@@ -1730,9 +1959,7 @@ class TestSafetyGuardIntegration:
             assert "OPERATION BLOCKED" in result2
             assert "Rate limit" in result2
         finally:
-            server._clients = original_clients
-            server._safety_guard = original_guard
-            server._audit_logger = original_logger
+            server._context = original_context
 
     @pytest.mark.asyncio
     async def test_read_blocked_logs_blocked_operation(
@@ -1747,14 +1974,13 @@ class TestSafetyGuardIntegration:
         settings = SecuritySettings(rate_limit_calls=1, rate_limit_window=60)
         guard = SafetyGuard(settings)
 
-        original_clients = server._clients
-        original_guard = server._safety_guard
-        original_logger = server._audit_logger
-
+        original_context = server._context
         mock_logger = MagicMock(spec=AuditLogger)
-        server._clients = {"primary": mock_argocd_client}
-        server._safety_guard = guard
-        server._audit_logger = mock_logger
+        server._context = _make_server_context(
+            safety_guard=guard,
+            audit_logger=mock_logger,
+            clients={"primary": mock_argocd_client},
+        )
 
         try:
             params = ListApplicationsParams(instance="primary")
@@ -1765,9 +1991,7 @@ class TestSafetyGuardIntegration:
 
             mock_logger.log_blocked.assert_called()
         finally:
-            server._clients = original_clients
-            server._safety_guard = original_guard
-            server._audit_logger = original_logger
+            server._context = original_context
 
 
 @pytest.mark.unit
@@ -1783,8 +2007,8 @@ class TestMCPResources:
         from argocd_mcp import server
         from argocd_mcp.server import get_instances_resource
 
-        original = server._settings
-        server._settings = mock_server_settings
+        original = server._context
+        server._context = _make_server_context(settings=mock_server_settings)
 
         try:
             result = await get_instances_resource()
@@ -1792,7 +2016,7 @@ class TestMCPResources:
             assert "Configured ArgoCD Instances" in result
             assert "primary" in result or "test" in result
         finally:
-            server._settings = original
+            server._context = original
 
     @pytest.mark.asyncio
     async def test_get_instances_resource_no_instances(self):
@@ -1800,16 +2024,16 @@ class TestMCPResources:
         from argocd_mcp import server
         from argocd_mcp.server import get_instances_resource
 
-        original = server._settings
+        original = server._context
         mock_settings = MagicMock()
         mock_settings.all_instances = []
-        server._settings = mock_settings
+        server._context = _make_server_context(settings=mock_settings)
 
         try:
             result = await get_instances_resource()
             assert "No ArgoCD instances configured" in result
         finally:
-            server._settings = original
+            server._context = original
 
     @pytest.mark.asyncio
     async def test_get_security_resource(
@@ -1820,8 +2044,8 @@ class TestMCPResources:
         from argocd_mcp import server
         from argocd_mcp.server import get_security_resource
 
-        original = server._settings
-        server._settings = mock_server_settings
+        original = server._context
+        server._context = _make_server_context(settings=mock_server_settings)
 
         try:
             result = await get_security_resource()
@@ -1831,7 +2055,7 @@ class TestMCPResources:
             assert "Destructive operations" in result
             assert "Rate limit" in result
         finally:
-            server._settings = original
+            server._context = original
 
 
 @pytest.mark.unit

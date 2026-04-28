@@ -9,14 +9,14 @@ import os
 from pathlib import Path  # noqa: TC003 - Required at runtime for Pydantic
 from typing import Annotated
 
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ArgocdInstance(BaseModel):
     """Configuration for a single ArgoCD instance."""
 
-    model_config = {"extra": "ignore"}
+    model_config = ConfigDict(extra="ignore")
 
     url: str = Field(description="ArgoCD server URL")
     token: SecretStr = Field(description="ArgoCD API token")

@@ -189,17 +189,28 @@ class SafetyGuard:
                 setting="MCP_DISABLE_DESTRUCTIVE",
             )
 
-        if not confirmed or confirm_name != target:
-            return ConfirmationRequired(
-                operation=operation,
-                target=target,
-                impact=self._get_impact_description(operation),
-                confirmation_instructions=(
-                    f"To proceed, set confirm=true AND confirm_name='{target}'"
-                ),
+        if not confirmed:
+            instructions = f"To proceed, set confirm=true AND confirm_name='{target}'"
+        elif confirm_name is None:
+            instructions = (
+                f"confirm=true was provided but confirm_name is missing. "
+                f"Set confirm_name='{target}' (must match exactly, including case and whitespace)."
             )
+        elif confirm_name != target:
+            instructions = (
+                f"confirm_name={confirm_name!r} does not match the target {target!r}. "
+                f"Matching is exact — case and whitespace are significant. "
+                f"Set confirm_name='{target}' to proceed."
+            )
+        else:
+            return None
 
-        return None
+        return ConfirmationRequired(
+            operation=operation,
+            target=target,
+            impact=self._get_impact_description(operation),
+            confirmation_instructions=instructions,
+        )
 
     def check_cluster_operation(
         self,
