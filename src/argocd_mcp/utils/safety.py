@@ -76,6 +76,11 @@ class RateLimiter:
         """
         self._max_calls = max_calls
         self._window = window_seconds
+        # Per-key call timestamps. Keys are operation names like
+        # "read:list_applications" — a small fixed cardinality dictated by
+        # the registered MCP tools, so the dict never grows unbounded. If
+        # callers ever start passing per-target keys (e.g. including the
+        # application name), revisit this and add explicit eviction.
         self._calls: dict[str, list[float]] = defaultdict(list)
 
     def check(self, key: str) -> bool:

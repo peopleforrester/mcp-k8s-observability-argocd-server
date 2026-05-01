@@ -335,6 +335,23 @@ class TestArgocdClient:
 
         assert result == data
 
+    def test_mask_response_depth_limit_does_not_overflow(
+        self, mock_argocd_instance: ArgocdInstance
+    ):
+        """Pathologically deep input must not blow the stack."""
+        client = ArgocdClient(mock_argocd_instance)
+
+        # Build a structure deeper than _MAX_MASK_DEPTH (64). Any reasonable
+        # ArgoCD response is well under 20 levels deep; this is purely a
+        # cycle / pathological-input guard.
+        data: dict = {"v": "ok"}
+        for _ in range(200):
+            data = {"nested": data}
+
+        # Must return without raising RecursionError.
+        result = client._mask_response(data)
+        assert isinstance(result, dict)
+
     async def test_context_manager_not_entered(self, mock_argocd_instance: ArgocdInstance):
         """Test that client raises when not in context manager."""
         client = ArgocdClient(mock_argocd_instance)
