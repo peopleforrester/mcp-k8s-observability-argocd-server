@@ -342,8 +342,8 @@ For managing multiple ArgoCD instances (multi-cluster, multi-environment):
 export ARGOCD_URL=https://argocd-prod.example.com
 export ARGOCD_TOKEN=prod-token
 
-# Additional instances can be configured programmatically
-# See examples/multi-cluster.json
+# Additional instances can be configured via the multi-env example.
+# See examples/claude-desktop-multi-env.json
 ```
 
 ---

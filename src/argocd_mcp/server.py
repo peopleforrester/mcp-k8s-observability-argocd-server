@@ -222,10 +222,13 @@ def get_audit_logger() -> AuditLogger:
 
 
 def main() -> None:
-    """Run the ArgoCD MCP server."""
-    configure_logging(level="INFO")
-    logger.info("ArgoCD MCP Server starting")
+    """Run the ArgoCD MCP server.
 
+    Logging is intentionally NOT configured here — `lifespan()` configures it
+    using the value of `ARGOCD_MCP_LOG_LEVEL` once settings are loaded. Calling
+    `configure_logging` before lifespan would lock the level to INFO and
+    silently drop DEBUG-level startup messages requested by the operator.
+    """
     try:
         mcp.run()
     except KeyboardInterrupt:

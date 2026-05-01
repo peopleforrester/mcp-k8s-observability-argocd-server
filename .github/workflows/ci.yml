@@ -85,7 +85,9 @@ jobs:
         run: uv sync --dev
 
       - name: Run unit tests
-        run: uv run pytest -m unit --cov=src/argocd_mcp --cov-report=xml
+        # No -m filter here: pyproject.toml's addopts already excludes integration.
+        # Using `-m unit` would silently drop any test that lacks an explicit unit marker.
+        run: uv run pytest --cov=src/argocd_mcp --cov-report=xml
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
