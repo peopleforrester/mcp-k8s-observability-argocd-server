@@ -380,6 +380,13 @@ async def diagnose_sync_failure(params: DiagnoseSyncFailureParams, ctx: MCPConte
                 if cond_type in ("ComparisonError", "InvalidSpecError", "SyncError"):
                     issues.append(f"[{cond_type}] {cond_msg}")
 
+        # Heuristic substring matching on Kubernetes event messages. The
+        # patterns below are stable across recent k8s versions but localized
+        # or upgraded messages may slip past — treat this as best-effort
+        # triage, not exhaustive root-cause analysis. Each branch has a
+        # corresponding test in tests/unit/test_server.py
+        # (TestDiagnoseSyncFailureTool); when adding a new branch, add a
+        # matching test so future renames are caught.
         for event in events[:20]:
             msg = event.get("message", "")
             reason = event.get("reason", "")
