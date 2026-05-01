@@ -69,7 +69,15 @@ class ArgocdError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class Application:
-    """ArgoCD Application representation with flattened fields (immutable value object)."""
+    """ArgoCD Application representation with flattened fields.
+
+    The dataclass is `frozen=True`, which prevents reassignment of fields
+    (`app.name = "x"` raises). It does NOT deep-freeze the contents of the
+    dict/list fields — `operation_state`, `conditions`, and `resources`
+    expose mutable references. Treat the contents as read-only by
+    convention; mutation will not raise but breaks the value-object
+    contract this class is meant to provide.
+    """
 
     name: str
     namespace: str
@@ -144,9 +152,21 @@ class ArgocdClient:
             await self._client.aclose()
             self._client = None
 
-    def _mask_response(self, data: Any) -> Any:
+    # Maximum recursion depth for _mask_response. ArgoCD resource trees and
+    # manifests are deeply nested but never legitimately reach this depth;
+    # exceeding it almost certainly indicates a cycle or pathological input.
+    # The cap protects the event loop from a stack overflow in CPython.
+    _MAX_MASK_DEPTH: int = 64
+
+    def _mask_response(self, data: Any, _depth: int = 0) -> Any:
         """Recursively mask sensitive values in response data."""
         if not self._mask_secrets:
+            return data
+
+        if _depth >= self._MAX_MASK_DEPTH:
+            # Return the value as-is at the depth limit. We've already masked
+            # everything shallower than this; anything below is best-effort.
+            logger.warning("mask_response depth limit reached", depth=_depth)
             return data
 
         if isinstance(data, str):
@@ -161,11 +181,11 @@ class ArgocdClient:
                 if _is_sensitive_key(k):
                     masked_dict[k] = "***MASKED***"
                 else:
-                    masked_dict[k] = self._mask_response(v)
+                    masked_dict[k] = self._mask_response(v, _depth + 1)
             return masked_dict
 
         if isinstance(data, list):
-            return [self._mask_response(item) for item in data]
+            return [self._mask_response(item, _depth + 1) for item in data]
 
         return data
 

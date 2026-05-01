@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from argocd_mcp.tools._safety import check_destination_cluster_allowed
 from argocd_mcp.tools.params import (
     DeleteApplicationParams,
     SyncApplicationWithPruneParams,
@@ -86,9 +87,18 @@ async def delete_application(params: DeleteApplicationParams, ctx: MCPContext) -
             return blocked.format_message()
         return blocked.format_message()
 
-    try:
-        client = get_client(params.instance)
+    client = get_client(params.instance)
+    cluster_block = await check_destination_cluster_allowed(
+        client=client,
+        app_name=params.name,
+        operation="delete_application",
+        safety_guard=get_safety_guard(),
+        audit_logger=get_audit_logger(),
+    )
+    if cluster_block is not None:
+        return cluster_block
 
+    try:
         await ctx.report_progress(0, 1, f"Deleting application {params.name}")
 
         await client.delete_application(params.name, params.cascade)
@@ -145,9 +155,18 @@ async def sync_application_with_prune(
             )
             return destructive.format_message()
 
-    try:
-        client = get_client(params.instance)
+    client = get_client(params.instance)
+    cluster_block = await check_destination_cluster_allowed(
+        client=client,
+        app_name=params.name,
+        operation="sync_application_with_prune",
+        safety_guard=get_safety_guard(),
+        audit_logger=get_audit_logger(),
+    )
+    if cluster_block is not None:
+        return cluster_block
 
+    try:
         mode = "[DRY-RUN] " if params.dry_run else ""
         await ctx.report_progress(0, 2, f"{mode}Initiating sync-with-prune for {params.name}")
 

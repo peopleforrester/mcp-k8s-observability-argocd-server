@@ -423,6 +423,6 @@ export MCP_DISABLE_DESTRUCTIVE=false
 
 If you discover a security vulnerability, please report it privately to the maintainers rather than opening a public issue.
 
-Email: security@example.com
+Email: michael@performantpro.com
 
 We will respond within 48 hours and work with you to understand and address the issue.

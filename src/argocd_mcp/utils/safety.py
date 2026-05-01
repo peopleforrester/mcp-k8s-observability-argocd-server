@@ -76,6 +76,11 @@ class RateLimiter:
         """
         self._max_calls = max_calls
         self._window = window_seconds
+        # Per-key call timestamps. Keys are operation names like
+        # "read:list_applications" — a small fixed cardinality dictated by
+        # the registered MCP tools, so the dict never grows unbounded. If
+        # callers ever start passing per-target keys (e.g. including the
+        # application name), revisit this and add explicit eviction.
         self._calls: dict[str, list[float]] = defaultdict(list)
 
     def check(self, key: str) -> bool:
@@ -212,6 +217,13 @@ class SafetyGuard:
             confirmation_instructions=instructions,
         )
 
+    # ArgoCD identifies the cluster ArgoCD itself runs in by either the
+    # canonical Kubernetes API URL or the friendly name "in-cluster". Both
+    # appear in real Application destinations, depending on installation.
+    _IN_CLUSTER_IDENTIFIERS: frozenset[str] = frozenset(
+        {"in-cluster", "https://kubernetes.default.svc"}
+    )
+
     def check_cluster_operation(
         self,
         operation: str,
@@ -220,9 +232,12 @@ class SafetyGuard:
         """
         Check if operation on specific cluster is allowed.
 
-        When MCP_SINGLE_CLUSTER=true, only "in-cluster" operations are allowed.
+        When MCP_SINGLE_CLUSTER=true, only operations whose destination is the
+        cluster ArgoCD itself runs in are allowed. Accepts both the canonical
+        URL form (`https://kubernetes.default.svc`) and the friendly name
+        (`in-cluster`) since ArgoCD emits whichever was configured.
         """
-        if self._settings.single_cluster and cluster != "in-cluster":
+        if self._settings.single_cluster and cluster not in self._IN_CLUSTER_IDENTIFIERS:
             return OperationBlocked(
                 operation=operation,
                 reason=f"Operation on cluster '{cluster}' blocked in single-cluster mode",

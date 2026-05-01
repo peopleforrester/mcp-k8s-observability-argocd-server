@@ -74,12 +74,49 @@ Use `claude-desktop-local-dev.json` with full access for rapid iteration.
 
 ## Multi-Instance Setup
 
-The `claude-desktop-multi-env.json` example shows how to configure multiple ArgoCD instances. Each instance appears as a separate MCP server in Claude:
+There are two ways to talk to more than one ArgoCD instance from Claude. Pick whichever matches your operational model.
+
+### Option A: One MCP server per instance (recommended)
+
+The `claude-desktop-multi-env.json` example uses this pattern. Each instance appears as a separate MCP server entry in Claude, so each carries its own credentials and security profile:
 
 - `argocd-prod` - Read-only access to production
 - `argocd-staging` - Write access to staging
 
-Claude will show both servers and can query either one based on context.
+Claude lists both servers and can query either based on context. This is the simplest operational model and the right default — separate processes, separate environment variables, separate audit logs.
+
+### Option B: A single MCP server backed by multiple instances
+
+If you prefer one process that fans out to several ArgoCD endpoints, set `ARGOCD_URL` / `ARGOCD_TOKEN` for the primary instance and add `ARGOCD_MCP_ADDITIONAL_INSTANCES__N__*` for each extra one (Pydantic-settings nested-env syntax with `__` as the delimiter):
+
+```json
+{
+  "mcpServers": {
+    "argocd": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/argocd-mcp-server", "argocd-mcp"],
+      "env": {
+        "ARGOCD_URL": "https://argocd-prod.example.com",
+        "ARGOCD_TOKEN": "prod-token",
+
+        "ARGOCD_MCP_ADDITIONAL_INSTANCES__0__URL": "https://argocd-dr.example.com",
+        "ARGOCD_MCP_ADDITIONAL_INSTANCES__0__TOKEN": "dr-token",
+        "ARGOCD_MCP_ADDITIONAL_INSTANCES__0__NAME": "dr",
+
+        "ARGOCD_MCP_ADDITIONAL_INSTANCES__1__URL": "https://argocd-dev.example.com",
+        "ARGOCD_MCP_ADDITIONAL_INSTANCES__1__TOKEN": "dev-token",
+        "ARGOCD_MCP_ADDITIONAL_INSTANCES__1__NAME": "dev"
+      }
+    }
+  }
+}
+```
+
+Tools accept an `instance` parameter (defaults to `"primary"`) to pick which ArgoCD to talk to. The names you set in `__NAME` are what the agent passes (e.g. `list_applications(instance="dr")`).
+
+Caveats:
+- All instances share one set of `MCP_READ_ONLY` / `MCP_DISABLE_DESTRUCTIVE` / `MCP_SINGLE_CLUSTER` settings. If you need different security postures per instance, use Option A.
+- Audit logs land in a single file. If you need per-instance audit trails, use Option A.
 
 ## Troubleshooting
 

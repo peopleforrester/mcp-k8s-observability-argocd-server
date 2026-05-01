@@ -200,6 +200,27 @@ class TestSafetyGuard:
         result = guard.check_cluster_operation("sync", "in-cluster")
         assert result is None
 
+    def test_cluster_operation_allowed_canonical_in_cluster_url(self):
+        """The Kubernetes canonical in-cluster URL must also be allowed.
+
+        ArgoCD emits `https://kubernetes.default.svc` as destination_server for
+        applications targeting the local cluster; the gate must recognize it
+        or single-cluster mode would block every legitimate operation.
+        """
+        settings = SecuritySettings(single_cluster=True)
+        guard = SafetyGuard(settings)
+
+        result = guard.check_cluster_operation("sync", "https://kubernetes.default.svc")
+        assert result is None
+
+    def test_cluster_operation_allowed_when_single_cluster_disabled(self):
+        """With single_cluster=False (default), any destination is allowed."""
+        settings = SecuritySettings(single_cluster=False)
+        guard = SafetyGuard(settings)
+
+        result = guard.check_cluster_operation("sync", "https://prod.k8s.example.com")
+        assert result is None
+
 
 @pytest.mark.unit
 class TestOperationBlocked:

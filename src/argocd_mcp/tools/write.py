@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from argocd_mcp.tools._safety import check_destination_cluster_allowed
 from argocd_mcp.tools.params import (
     RefreshApplicationParams,
     RollbackApplicationParams,
@@ -65,9 +66,18 @@ async def sync_application(params: SyncApplicationParams, ctx: MCPContext) -> st
         get_audit_logger().log_blocked("sync_application", params.name, blocked.reason)
         return blocked.format_message()
 
-    try:
-        client = get_client(params.instance)
+    client = get_client(params.instance)
+    cluster_block = await check_destination_cluster_allowed(
+        client=client,
+        app_name=params.name,
+        operation="sync_application",
+        safety_guard=get_safety_guard(),
+        audit_logger=get_audit_logger(),
+    )
+    if cluster_block is not None:
+        return cluster_block
 
+    try:
         mode = "[DRY-RUN] " if params.dry_run else ""
         await ctx.report_progress(0, 2, f"{mode}Initiating sync for {params.name}")
 
@@ -120,9 +130,18 @@ async def refresh_application(params: RefreshApplicationParams, ctx: MCPContext)
         get_audit_logger().log_blocked("refresh_application", params.name, blocked.reason)
         return blocked.format_message()
 
-    try:
-        client = get_client(params.instance)
+    client = get_client(params.instance)
+    cluster_block = await check_destination_cluster_allowed(
+        client=client,
+        app_name=params.name,
+        operation="refresh_application",
+        safety_guard=get_safety_guard(),
+        audit_logger=get_audit_logger(),
+    )
+    if cluster_block is not None:
+        return cluster_block
 
+    try:
         refresh_type = "hard" if params.hard else "normal"
         await ctx.report_progress(0, 1, f"Triggering {refresh_type} refresh")
 
@@ -157,9 +176,18 @@ async def rollback_application(params: RollbackApplicationParams, ctx: MCPContex
         get_audit_logger().log_blocked("rollback_application", params.name, blocked.reason)
         return blocked.format_message()
 
-    try:
-        client = get_client(params.instance)
+    client = get_client(params.instance)
+    cluster_block = await check_destination_cluster_allowed(
+        client=client,
+        app_name=params.name,
+        operation="rollback_application",
+        safety_guard=get_safety_guard(),
+        audit_logger=get_audit_logger(),
+    )
+    if cluster_block is not None:
+        return cluster_block
 
+    try:
         mode = "[DRY-RUN] " if params.dry_run else ""
         await ctx.report_progress(0, 1, f"{mode}Rolling back {params.name}")
 
@@ -207,9 +235,18 @@ async def terminate_sync(params: TerminateSyncParams, ctx: MCPContext) -> str:
         get_audit_logger().log_blocked("terminate_sync", params.name, blocked.reason)
         return blocked.format_message()
 
-    try:
-        client = get_client(params.instance)
+    client = get_client(params.instance)
+    cluster_block = await check_destination_cluster_allowed(
+        client=client,
+        app_name=params.name,
+        operation="terminate_sync",
+        safety_guard=get_safety_guard(),
+        audit_logger=get_audit_logger(),
+    )
+    if cluster_block is not None:
+        return cluster_block
 
+    try:
         await ctx.report_progress(0, 1, f"Terminating sync for {params.name}")
 
         await client.terminate_sync(params.name)
