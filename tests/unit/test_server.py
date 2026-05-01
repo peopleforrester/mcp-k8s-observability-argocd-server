@@ -1278,6 +1278,94 @@ class TestRefreshApplicationTool:
 
 
 @pytest.mark.unit
+class TestSingleClusterEnforcement:
+    """Tier-2/3 handlers must consult check_cluster_operation when single_cluster=true."""
+
+    @pytest.fixture
+    def remote_app(self) -> Application:
+        """An Application whose destination is a non-in-cluster server."""
+        return Application(
+            name="remote-app",
+            namespace="argocd",
+            project="default",
+            repo_url="https://github.com/example/repo.git",
+            path="manifests",
+            target_revision="main",
+            destination_server="https://prod-east.k8s.example.com",
+            destination_namespace="prod",
+            sync_status="Synced",
+            health_status="Healthy",
+        )
+
+    @pytest.fixture
+    def server_single_cluster(
+        self,
+        mock_argocd_client: AsyncMock,
+        remote_app: Application,
+        mock_ctx: MagicMock,
+    ):
+        """Server context with single_cluster=true and a remote-targeted app."""
+        from argocd_mcp import server
+
+        original = server._context
+        guard = SafetyGuard(
+            SecuritySettings(
+                read_only=False,
+                disable_destructive=False,
+                single_cluster=True,
+            )
+        )
+        audit_logger = MagicMock(spec=AuditLogger)
+        mock_argocd_client.get_application.return_value = remote_app
+        server._context = _make_server_context(
+            safety_guard=guard,
+            audit_logger=audit_logger,
+            clients={"primary": mock_argocd_client},
+        )
+        yield {
+            "client": mock_argocd_client,
+            "logger": audit_logger,
+            "ctx": mock_ctx,
+        }
+        server._context = original
+
+    @pytest.mark.asyncio
+    async def test_sync_application_blocked_for_remote_cluster(
+        self, server_single_cluster: dict[str, Any]
+    ):
+        from argocd_mcp.server import SyncApplicationParams, sync_application
+
+        mocks = server_single_cluster
+        params = SyncApplicationParams(name="remote-app", dry_run=False, instance="primary")
+        result = await sync_application(params, mocks["ctx"])
+
+        assert "OPERATION BLOCKED" in result
+        assert "single-cluster" in result
+        assert "prod-east.k8s.example.com" in result
+        mocks["client"].sync_application.assert_not_called()
+        mocks["logger"].log_blocked.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_application_blocked_for_remote_cluster(
+        self, server_single_cluster: dict[str, Any]
+    ):
+        from argocd_mcp.server import DeleteApplicationParams, delete_application
+
+        mocks = server_single_cluster
+        params = DeleteApplicationParams(
+            name="remote-app",
+            confirm=True,
+            confirm_name="remote-app",
+            instance="primary",
+        )
+        result = await delete_application(params, mocks["ctx"])
+
+        assert "OPERATION BLOCKED" in result
+        assert "single-cluster" in result
+        mocks["client"].delete_application.assert_not_called()
+
+
+@pytest.mark.unit
 class TestDeleteApplicationTool:
     """Tests for delete_application MCP tool."""
 
