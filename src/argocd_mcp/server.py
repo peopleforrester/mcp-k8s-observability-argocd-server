@@ -121,6 +121,7 @@ __all__ = [
     "terminate_sync",
 ]
 
+
 @dataclass(slots=True)
 class ServerContext:
     """Bundle of long-lived server state populated at lifespan startup.
@@ -211,9 +212,6 @@ def get_safety_guard() -> SafetyGuard:
 def get_audit_logger() -> AuditLogger:
     """Get audit logger for recording operations."""
     return get_context().audit_logger
-
-
-
 
 
 # =============================================================================

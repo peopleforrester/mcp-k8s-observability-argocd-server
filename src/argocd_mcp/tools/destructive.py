@@ -181,9 +181,7 @@ async def sync_application_with_prune(
         await ctx.report_progress(2, 2, "Sync initiated")
 
         if params.dry_run:
-            get_audit_logger().log_write(
-                "sync_application_with_prune", params.name, "dry_run"
-            )
+            get_audit_logger().log_write("sync_application_with_prune", params.name, "dry_run")
             return (
                 f"Dry-run sync-with-prune complete for '{params.name}'\n\n"
                 f"Review the plan carefully. To apply (will DELETE resources not in Git):\n"

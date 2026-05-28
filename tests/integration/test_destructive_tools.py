@@ -230,9 +230,7 @@ class TestDeleteApplicationIntegration:
             settings=ServerSettings(additional_instances=[argocd_instance]),
         )
         try:
-            params = DeleteApplicationParams(
-                name=deletable_app, confirm=False, instance="primary"
-            )
+            params = DeleteApplicationParams(name=deletable_app, confirm=False, instance="primary")
             result = await delete_application(params, mock_ctx)
             assert "CONFIRMATION REQUIRED" in result
             # Application must still exist — handler should not have called the API.
