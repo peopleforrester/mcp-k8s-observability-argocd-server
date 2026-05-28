@@ -147,9 +147,7 @@ class TestSafetyGuard:
         assert "confirm_name is missing" in result.confirmation_instructions
         assert "test-app" in result.confirmation_instructions
 
-    def test_destructive_name_mismatch_message_calls_out_exactness(
-        self, safety_guard: SafetyGuard
-    ):
+    def test_destructive_name_mismatch_message_calls_out_exactness(self, safety_guard: SafetyGuard):
         """Name mismatch must tell the agent matching is exact."""
         result = safety_guard.check_destructive_operation(
             "delete_application",

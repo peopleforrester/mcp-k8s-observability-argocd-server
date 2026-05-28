@@ -86,9 +86,7 @@ def _make_server_context(
 
     return ServerContext(
         settings=settings if settings is not None else MagicMock(spec=ServerSettings),
-        safety_guard=safety_guard
-        if safety_guard is not None
-        else SafetyGuard(SecuritySettings()),
+        safety_guard=safety_guard if safety_guard is not None else SafetyGuard(SecuritySettings()),
         audit_logger=audit_logger if audit_logger is not None else MagicMock(spec=AuditLogger),
         clients=clients if clients is not None else {},
     )
@@ -143,9 +141,7 @@ class TestGetClientAndHelpers:
         with pytest.raises(RuntimeError, match="Server not initialized"):
             server.get_settings()
 
-    def test_get_safety_guard_returns_guard(
-        self, reset_server_context, safety_guard: SafetyGuard
-    ):
+    def test_get_safety_guard_returns_guard(self, reset_server_context, safety_guard: SafetyGuard):
         from argocd_mcp import server
 
         server._context = _make_server_context(safety_guard=safety_guard)
@@ -1476,19 +1472,10 @@ class TestDeleteApplicationTool:
 
         original_context = server._context
 
-
         server._context = _make_server_context(
-
-
             safety_guard=guard,
-
-
             audit_logger=MagicMock(spec=AuditLogger),
-
-
             clients={"primary": mock_argocd_client},
-
-
         )
 
         try:
@@ -1570,9 +1557,7 @@ class TestSyncApplicationWithPruneTool:
         mocks = server_with_mocks
         mocks["client"].sync_application.return_value = {"status": "ok"}
 
-        params = SyncApplicationWithPruneParams(
-            name="test-app", dry_run=True, instance="primary"
-        )
+        params = SyncApplicationWithPruneParams(name="test-app", dry_run=True, instance="primary")
         result = await sync_application_with_prune(params, mocks["ctx"])
 
         assert "Dry-run sync-with-prune complete" in result
@@ -1598,9 +1583,7 @@ class TestSyncApplicationWithPruneTool:
 
         mocks = server_with_mocks
 
-        params = SyncApplicationWithPruneParams(
-            name="test-app", dry_run=False, instance="primary"
-        )
+        params = SyncApplicationWithPruneParams(name="test-app", dry_run=False, instance="primary")
         result = await sync_application_with_prune(params, mocks["ctx"])
 
         assert "CONFIRMATION REQUIRED" in result
@@ -1711,19 +1694,10 @@ class TestSyncApplicationWithPruneTool:
 
         original_context = server._context
 
-
         server._context = _make_server_context(
-
-
             safety_guard=guard,
-
-
             audit_logger=MagicMock(spec=AuditLogger),
-
-
             clients={"primary": mock_argocd_client},
-
-
         )
 
         try:
@@ -2020,19 +1994,10 @@ class TestSafetyGuardIntegration:
 
         original_context = server._context
 
-
         server._context = _make_server_context(
-
-
             safety_guard=guard,
-
-
             audit_logger=MagicMock(spec=AuditLogger),
-
-
             clients={"primary": mock_argocd_client},
-
-
         )
 
         try:

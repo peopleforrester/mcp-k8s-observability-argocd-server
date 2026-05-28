@@ -324,9 +324,7 @@ class TestArgocdClient:
         assert result["api-key"] == "***MASKED***"
         assert result["x-bearer-token"] == "***MASKED***"
 
-    def test_mask_response_negative_non_sensitive_keys(
-        self, mock_argocd_instance: ArgocdInstance
-    ):
+    def test_mask_response_negative_non_sensitive_keys(self, mock_argocd_instance: ArgocdInstance):
         """Keys without sensitive substrings are not masked."""
         client = ArgocdClient(mock_argocd_instance)
 
