@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from mcp.server.fastmcp import Context
+
 from argocd_mcp.tools._safety import check_destination_cluster_allowed
 from argocd_mcp.tools.params import (
     RefreshApplicationParams,
@@ -21,16 +23,20 @@ from argocd_mcp.tools.params import (
 from argocd_mcp.utils.client import ArgocdError
 from argocd_mcp.utils.logging import set_correlation_id
 
+# MCPContext is aliased at runtime (not under TYPE_CHECKING) because the MCP SDK
+# resolves tool parameter annotations via get_type_hints() at registration time;
+# if the name is missing from module globals, registration raises
+# InvalidSignature. server.py applies the same pattern.
+MCPContext = Context[Any, Any]
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from mcp.server.fastmcp import Context, FastMCP
+    from mcp.server.fastmcp import FastMCP
 
     from argocd_mcp.utils.client import ArgocdClient
     from argocd_mcp.utils.logging import AuditLogger
     from argocd_mcp.utils.safety import SafetyGuard
-
-    MCPContext = Context[Any, Any]
 
     GetClient = Callable[[str], ArgocdClient]
     GetSafetyGuard = Callable[[], SafetyGuard]

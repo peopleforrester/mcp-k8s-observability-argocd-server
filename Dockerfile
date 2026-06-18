@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for fast dependency resolution — pinned for reproducible builds
-COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.21 /uv /usr/local/bin/uv
 
 # Copy project files
 COPY pyproject.toml README.md ./
