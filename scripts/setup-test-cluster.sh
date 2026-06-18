@@ -7,16 +7,18 @@ set -e
 CLUSTER_NAME="${CLUSTER_NAME:-argocd-mcp-test}"
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-./kubeconfig}"
 
-# Auto-detect cgroup version and select appropriate Kubernetes version
-# K8s 1.35+ dropped cgroups v1 support
+# Auto-detect cgroup version and select appropriate Kubernetes version.
+# K8s 1.36 removed cgroup v1 support entirely (maintenance mode since 1.31);
+# 1.35 was the last release that ran on cgroup v1.
 CGROUP_VERSION=$(docker info 2>/dev/null | grep "Cgroup Version" | awk '{print $3}')
 if [ "$CGROUP_VERSION" = "2" ]; then
-    DEFAULT_K8S_VERSION="v1.35.0"
+    # cgroups v2 - Kind 0.32 defaults to this image
+    DEFAULT_K8S_VERSION="v1.36.1"
 else
-    # cgroups v1 - must use K8s 1.34.x or earlier
-    DEFAULT_K8S_VERSION="v1.34.3"
+    # cgroups v1 - must pin K8s 1.35.x or earlier; 1.36 will not start
+    DEFAULT_K8S_VERSION="v1.35.0"
     echo "WARNING: Detected cgroups v1. Using Kubernetes ${DEFAULT_K8S_VERSION}"
-    echo "         K8s 1.35+ requires cgroups v2. Consider upgrading Docker/WSL2."
+    echo "         K8s 1.36 removed cgroup v1 support. Upgrade Docker/WSL2 to cgroup v2 when you can."
     echo ""
 fi
 K8S_VERSION="${K8S_VERSION:-$DEFAULT_K8S_VERSION}"
@@ -35,7 +37,7 @@ command -v docker >/dev/null 2>&1 || { echo "docker is required but not installe
 # Check if cluster already exists
 if kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"; then
     echo "Cluster '$CLUSTER_NAME' already exists."
-    read -p "Delete and recreate? (y/N): " confirm
+    read -r -p "Delete and recreate? (y/N): " confirm
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
         echo "Deleting existing cluster..."
         kind delete cluster --name "$CLUSTER_NAME"
