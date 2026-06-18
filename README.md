@@ -355,7 +355,7 @@ export ARGOCD_TOKEN=prod-token
 - Python 3.11, 3.12, or 3.13
 - uv (recommended) or pip
 - Docker (for container builds)
-- Kind 0.31+ (for local Kubernetes testing)
+- Kind 0.32+ (for local Kubernetes testing)
 
 ### Setup
 
@@ -376,13 +376,15 @@ docker build -t argocd-mcp-server .
 
 ### Testing with Kind
 
-**Important**: Kubernetes 1.35+ requires cgroups v2. Check your cgroup version:
+**Important**: Kubernetes 1.36 removed cgroup v1 support entirely — a node on a
+cgroup v1 host will not start. (cgroup v1 had been in maintenance mode since
+1.31; 1.35 was the last release to support it.) Check your cgroup version:
 ```bash
 docker info | grep "Cgroup Version"
 ```
 
-- **Cgroup Version: 2** - Use Kubernetes 1.35 (default in Kind 0.31+)
-- **Cgroup Version: 1** - Use Kubernetes 1.34.x (WSL2 default, older Docker)
+- **Cgroup Version: 2** - Use Kubernetes 1.36 (default in Kind 0.32+)
+- **Cgroup Version: 1** - Pin Kubernetes 1.35.x or earlier, or upgrade Docker/WSL2 to cgroup v2
 
 ```bash
 # Auto-detect cgroup version and create cluster
@@ -390,10 +392,10 @@ docker info | grep "Cgroup Version"
 
 # Or manually with specific version:
 # For cgroups v2 (recommended):
-kind create cluster --name argocd-mcp-test --image kindest/node:v1.35.0
+kind create cluster --name argocd-mcp-test --image kindest/node:v1.36.1
 
-# For cgroups v1 (WSL2/older Docker):
-kind create cluster --name argocd-mcp-test --image kindest/node:v1.34.3
+# For cgroups v1 hosts (last supported release):
+kind create cluster --name argocd-mcp-test --image kindest/node:v1.35.0
 
 # Install ArgoCD
 kubectl create namespace argocd
