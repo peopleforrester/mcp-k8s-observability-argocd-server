@@ -416,12 +416,18 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 ```
 argocd-mcp-server/
 ├── src/argocd_mcp/
-│   ├── server.py           # FastMCP server with all tools and resources
+│   ├── server.py           # Entrypoint: FastMCP instance, lifespan, ServerContext, registration
 │   ├── config.py           # Configuration management (pydantic-settings)
-│   ├── tools/              # Reserved for future tool modularization
-│   ├── resources/          # Reserved for future resource modularization
+│   ├── tools/
+│   │   ├── read.py         # Tier-1 read-only handlers
+│   │   ├── write.py        # Tier-2 write handlers (require MCP_READ_ONLY=false)
+│   │   ├── destructive.py  # Tier-3 destructive handlers (require confirmation)
+│   │   ├── params.py       # Pydantic parameter models for every tool
+│   │   └── _safety.py      # Shared destination-cluster guard
+│   ├── resources/
+│   │   └── applications.py # MCP resources: argocd://instances, argocd://security
 │   └── utils/
-│       ├── client.py       # ArgoCD API client with retry logic
+│       ├── client.py       # ArgoCD API client with retry logic and secret masking
 │       ├── safety.py       # Confirmation patterns, rate limiting
 │       └── logging.py      # Structured logging, audit trail
 ├── tests/
