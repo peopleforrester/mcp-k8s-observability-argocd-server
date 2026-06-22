@@ -33,7 +33,9 @@ jobs:
         run: uv sync --dev
 
       - name: Run tests
-        run: uv run pytest -m unit
+        # No -m filter: pyproject.toml's addopts already excludes integration.
+        # `-m unit` would silently drop any test lacking an explicit unit marker.
+        run: uv run pytest
 
       - name: Build package
         run: uv build
