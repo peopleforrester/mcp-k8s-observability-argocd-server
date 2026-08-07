@@ -107,3 +107,6 @@ review_*.md
 session_*.md
 plan.md
 todo.md
+
+# Imported context archive from claude.ai migration — local Claude Code context only, never publish (public repo).
+claude-ai-context/
