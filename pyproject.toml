@@ -36,7 +36,9 @@ classifiers = [
 ]
 
 dependencies = [
-    "mcp>=1.26.0",
+    # <2 is deliberate: mcp 2.0 removed mcp.server.fastmcp, which every tool
+    # module imports. >=1.28.1 satisfies the advisory against earlier 1.x.
+    "mcp>=1.28.1,<2",
     "httpx>=0.28.0",
     "pydantic>=2.12.0",
     "pydantic-settings>=2.10.0",
