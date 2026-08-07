@@ -1,25 +1,30 @@
-```
-     _____                  _____ ____    __  __  _____ _____
-    /  _  \_______ _____   / ____|  _ \  |  \/  |/ ____| __ \
-   /  /_\  \_  __ \_  __ \| |    | | | | | \  / | |    |  _) |
-  /    |    \  | \/ | | | | |    | |_| | | |\/| | |    |  __/
-  \____|____/__|    |_| |_|\_____|____/  |_|  |_|\_____|_|
-
-         ╔═══════════════════════════════════════╗
-         ║  S A F E T Y   F I R S T   G I T O P S ║
-         ╚═══════════════════════════════════════╝
-```
+![ArgoCD MCP Server: a safety layer between an AI agent and a GitOps cluster](assets/hero.png)
 
 # ArgoCD MCP Server
 
-**Safety-first GitOps operations for ArgoCD via the Model Context Protocol.**
+**Give an AI agent real operational control of your production GitOps cluster, without giving it the ability to quietly delete it.** Read-only by default, dry-run on every write, and destructive operations that make you type the application name twice.
 
+[![CI](https://github.com/peopleforrester/mcp-k8s-observability-argocd-server/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/peopleforrester/mcp-k8s-observability-argocd-server/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-1.26%2B-green.svg)](https://modelcontextprotocol.io/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Type checked: mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](https://mypy-lang.org/)
 [![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+
+---
+
+## At a Glance
+
+| | | Where to check |
+|---|---|---|
+| **15 tools, 3 safety tiers** | 9 read, 4 write, 2 destructive | [`src/argocd_mcp/tools/`](src/argocd_mcp/tools/) |
+| **272 tests** | 250 unit, 22 integration against a real ArgoCD on Kind | [`tests/`](tests/) |
+| **96% line coverage** | CI fails the build below 80% | [`pyproject.toml`](pyproject.toml) |
+| **Python 3.11 – 3.14** | every version exercised on each push | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+
+The integration suite is not mocked: CI stands up a Kind cluster, installs ArgoCD,
+and drives the real API, including the delete and prune paths.
 
 ---
 
