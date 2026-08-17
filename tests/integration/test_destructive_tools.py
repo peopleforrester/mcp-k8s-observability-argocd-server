@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
 
     from argocd_mcp.config import ArgocdInstance
+    from argocd_mcp.server import ServerContext
 
 
 pytestmark = pytest.mark.skipif(
@@ -137,7 +138,7 @@ def _make_destructive_context(
     *,
     settings: ServerSettings,
     disable_destructive: bool = False,
-) -> object:
+) -> ServerContext:
     """Build a ServerContext wired for destructive ops."""
     from argocd_mcp.server import ServerContext
 

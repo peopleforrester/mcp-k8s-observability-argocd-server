@@ -160,7 +160,13 @@ plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]
+# Relaxing disallow_untyped_defs alone was not enough: strict also turns on
+# check_untyped_defs, so mypy still walked every unannotated test body and
+# reported the annotations as missing. All three are needed for the exemption
+# this block has always intended. src stays fully strict.
 disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
 
 [[tool.mypy.overrides]]
 module = ["respx.*"]

@@ -123,7 +123,7 @@ class PortForwardProcess:
         self.service = service
         self.local_port = local_port
         self.remote_port = remote_port
-        self._process: subprocess.Popen | None = None
+        self._process: subprocess.Popen[bytes] | None = None
 
     def start(self) -> bool:
         """Start the port-forward; return True if it is listening."""
