@@ -342,7 +342,7 @@ class TestArgocdClient:
         # Build a structure deeper than _MAX_MASK_DEPTH (64). Any reasonable
         # ArgoCD response is well under 20 levels deep; this is purely a
         # cycle / pathological-input guard.
-        data: dict = {"v": "ok"}
+        data: dict[str, object] = {"v": "ok"}
         for _ in range(200):
             data = {"nested": data}
 
