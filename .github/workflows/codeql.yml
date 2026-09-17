@@ -1,0 +1,55 @@
+# ABOUTME: CodeQL static analysis for the ArgoCD MCP Server
+# ABOUTME: Scans the Python source and the workflow files themselves
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+  schedule:
+    # Weekly, so newly published queries reach unchanged code. Off-peak minute
+    # to avoid the congestion that round-number schedules attract.
+    - cron: "27 5 * * 1"
+
+# Default-deny at the top level; the job widens only what it needs.
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # build-mode none is the documented choice for interpreted languages.
+          - language: python
+            build-mode: none
+          # The workflows are scanned too, which is what catches expression
+          # injection through untrusted context values in a run: block.
+          - language: actions
+            build-mode: none
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
