@@ -13,6 +13,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege for GITHUB_TOKEN. Every job here only reads the checkout;
+# nothing writes to the repo, publishes, or touches the API.
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint
