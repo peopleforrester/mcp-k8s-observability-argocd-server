@@ -12,11 +12,11 @@ KUBECONFIG_PATH="${KUBECONFIG_PATH:-./kubeconfig}"
 # 1.35 was the last release that ran on cgroup v1.
 CGROUP_VERSION=$(docker info 2>/dev/null | grep "Cgroup Version" | awk '{print $3}')
 if [ "$CGROUP_VERSION" = "2" ]; then
-    # cgroups v2 - Kind 0.32 defaults to this image
-    DEFAULT_K8S_VERSION="v1.36.1"
+    # cgroups v2 - Kind 0.33 defaults to this image
+    DEFAULT_K8S_VERSION="v1.37.0"
 else
     # cgroups v1 - must pin K8s 1.35.x or earlier; 1.36 will not start
-    DEFAULT_K8S_VERSION="v1.35.0"
+    DEFAULT_K8S_VERSION="v1.35.8"
     echo "WARNING: Detected cgroups v1. Using Kubernetes ${DEFAULT_K8S_VERSION}"
     echo "         K8s 1.36 removed cgroup v1 support. Upgrade Docker/WSL2 to cgroup v2 when you can."
     echo ""

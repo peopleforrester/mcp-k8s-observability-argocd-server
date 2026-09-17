@@ -7,7 +7,7 @@
 [![CI](https://github.com/peopleforrester/mcp-k8s-observability-argocd-server/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/peopleforrester/mcp-k8s-observability-argocd-server/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/)
-[![MCP](https://img.shields.io/badge/MCP-1.26%2B-green.svg)](https://modelcontextprotocol.io/)
+[![MCP](https://img.shields.io/badge/MCP%20SDK-1.28%2B%20%7C%20%3C2-green.svg)](https://modelcontextprotocol.io/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Type checked: mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](https://mypy-lang.org/)
 [![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
@@ -46,7 +46,7 @@ We built this because we were tired of:
 
 ## Quick Demo
 
-> **Illustrative example** — the conversation below is a hand-written
+> **Illustrative example.** The conversation below is a hand-written
 > demonstration of how an agent would use these tools, not a transcript of
 > a real session. Tool names, parameters, and responses match what the
 > server actually returns; the surrounding chat is for illustration only.
@@ -360,7 +360,7 @@ export ARGOCD_TOKEN=prod-token
 - Python 3.11, 3.12, 3.13, or 3.14
 - uv (recommended) or pip
 - Docker (for container builds)
-- Kind 0.32+ (for local Kubernetes testing)
+- Kind 0.33+ (for local Kubernetes testing)
 
 ### Setup
 
@@ -381,14 +381,14 @@ docker build -t argocd-mcp-server .
 
 ### Testing with Kind
 
-**Important**: Kubernetes 1.36 removed cgroup v1 support entirely — a node on a
+**Important**: Kubernetes 1.36 removed cgroup v1 support entirely. A node on a
 cgroup v1 host will not start. (cgroup v1 had been in maintenance mode since
 1.31; 1.35 was the last release to support it.) Check your cgroup version:
 ```bash
 docker info | grep "Cgroup Version"
 ```
 
-- **Cgroup Version: 2** - Use Kubernetes 1.36 (default in Kind 0.32+)
+- **Cgroup Version: 2** - Use Kubernetes 1.37 (default in Kind 0.33+)
 - **Cgroup Version: 1** - Pin Kubernetes 1.35.x or earlier, or upgrade Docker/WSL2 to cgroup v2
 
 ```bash
@@ -397,10 +397,10 @@ docker info | grep "Cgroup Version"
 
 # Or manually with specific version:
 # For cgroups v2 (recommended):
-kind create cluster --name argocd-mcp-test --image kindest/node:v1.36.1
+kind create cluster --name argocd-mcp-test --image kindest/node:v1.37.0
 
 # For cgroups v1 hosts (last supported release):
-kind create cluster --name argocd-mcp-test --image kindest/node:v1.35.0
+kind create cluster --name argocd-mcp-test --image kindest/node:v1.35.8
 
 # Install ArgoCD
 kubectl create namespace argocd

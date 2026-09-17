@@ -5,12 +5,12 @@
 # - Kubernetes 1.36 removed cgroup v1 support entirely; nodes on a cgroup v1
 #   host will not start (cgroup v1 was in maintenance mode from 1.31, and 1.35
 #   was the last release to support it).
-# - For systems with cgroups v2, use K8s 1.36+ (Kind 0.32 default).
+# - For systems with cgroups v2, use K8s 1.37 (Kind 0.33 default).
 # - For systems still on cgroups v1, pin K8s 1.35.x or earlier.
 #
 # Check your cgroup version: docker info | grep "Cgroup Version"
-# - Cgroup Version: 2 -> Use kindest/node:v1.36.1
-# - Cgroup Version: 1 -> Use kindest/node:v1.35.0
+# - Cgroup Version: 2 -> Use kindest/node:v1.37.0
+# - Cgroup Version: 1 -> Use kindest/node:v1.35.8
 
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
