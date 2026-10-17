@@ -43,3 +43,6 @@ MCP server providing ArgoCD management tools for LLM agents.
 - Mask sensitive values in responses
 - Default to read-only mode
 - Environment variables for credentials only
+
+Test command: `uv run pytest && uv run ruff check src tests && uv run ruff format --check src tests && uv run mypy src`
+E2E command: `uv run pytest -m integration`

@@ -6,8 +6,8 @@
 Covers the tool layer (handler → safety guard → API), not the client layer
 (that's test_argocd_client.py). Runs against the same Kind+ArgoCD setup.
 
-Tests are skipped when ArgoCD is not available on the local cluster, so they
-silently no-op in environments without the integration harness.
+Tests fail loudly when ArgoCD is not available on the local cluster; run them
+only where the integration harness exists (`uv run pytest -m integration`).
 """
 
 from __future__ import annotations
@@ -29,19 +29,13 @@ from argocd_mcp.utils.logging import AuditLogger
 from argocd_mcp.utils.safety import SafetyGuard
 
 # Helpers come from conftest; fixtures (argocd_instance) resolve via pytest auto-discovery.
-from tests.integration.conftest import _is_argocd_available, _kubectl_context
+from tests.integration.conftest import _kubectl_context
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
 
     from argocd_mcp.config import ArgocdInstance
     from argocd_mcp.server import ServerContext
-
-
-pytestmark = pytest.mark.skipif(
-    not _is_argocd_available(),
-    reason="ArgoCD not available on Kind cluster",
-)
 
 
 PRUNE_APP_NAME = "integration-test-prune"
@@ -165,26 +159,19 @@ def mock_ctx() -> MagicMock:
 
 @pytest.fixture
 async def open_argocd_client(
-    argocd_instance: ArgocdInstance | None,
-) -> AsyncIterator[ArgocdClient | None]:
+    argocd_instance: ArgocdInstance,
+) -> AsyncIterator[ArgocdClient]:
     """Yield an opened ArgocdClient bound to the test ArgoCD."""
-    if argocd_instance is None:
-        yield None
-        return
     client = ArgocdClient(instance=argocd_instance, mask_secrets=True)
     async with client:
         yield client
 
 
 @pytest.fixture
-def deletable_app(argocd_instance: ArgocdInstance | None) -> Iterator[str | None]:
+def deletable_app(argocd_instance: ArgocdInstance) -> Iterator[str]:
     """Provision an ArgoCD Application meant to be deleted by the test."""
-    if argocd_instance is None:
-        yield None
-        return
     if not _kubectl_apply(_app_manifest(DELETE_APP_NAME)):
-        yield None
-        return
+        pytest.fail(f"Failed to create test application {DELETE_APP_NAME}", pytrace=False)
     time.sleep(3)
     try:
         yield DELETE_APP_NAME
@@ -193,14 +180,10 @@ def deletable_app(argocd_instance: ArgocdInstance | None) -> Iterator[str | None
 
 
 @pytest.fixture
-def prunable_app(argocd_instance: ArgocdInstance | None) -> Iterator[str | None]:
+def prunable_app(argocd_instance: ArgocdInstance) -> Iterator[str]:
     """Provision an ArgoCD Application meant for sync-with-prune testing."""
-    if argocd_instance is None:
-        yield None
-        return
     if not _kubectl_apply(_app_manifest(PRUNE_APP_NAME)):
-        yield None
-        return
+        pytest.fail(f"Failed to create test application {PRUNE_APP_NAME}", pytrace=False)
     time.sleep(3)
     try:
         yield PRUNE_APP_NAME
@@ -214,14 +197,11 @@ class TestDeleteApplicationIntegration:
 
     async def test_blocks_without_confirmation(
         self,
-        open_argocd_client: ArgocdClient | None,
-        deletable_app: str | None,
-        argocd_instance: ArgocdInstance | None,
+        open_argocd_client: ArgocdClient,
+        deletable_app: str,
+        argocd_instance: ArgocdInstance,
         mock_ctx: MagicMock,
     ) -> None:
-        if open_argocd_client is None or deletable_app is None or argocd_instance is None:
-            pytest.skip("ArgoCD integration harness not available")
-
         from argocd_mcp import server
         from argocd_mcp.tools.destructive import delete_application
 
@@ -243,14 +223,11 @@ class TestDeleteApplicationIntegration:
 
     async def test_blocked_when_destructive_disabled(
         self,
-        open_argocd_client: ArgocdClient | None,
-        deletable_app: str | None,
-        argocd_instance: ArgocdInstance | None,
+        open_argocd_client: ArgocdClient,
+        deletable_app: str,
+        argocd_instance: ArgocdInstance,
         mock_ctx: MagicMock,
     ) -> None:
-        if open_argocd_client is None or deletable_app is None or argocd_instance is None:
-            pytest.skip("ArgoCD integration harness not available")
-
         from argocd_mcp import server
         from argocd_mcp.tools.destructive import delete_application
 
@@ -277,14 +254,11 @@ class TestDeleteApplicationIntegration:
 
     async def test_deletes_with_full_confirmation(
         self,
-        open_argocd_client: ArgocdClient | None,
-        deletable_app: str | None,
-        argocd_instance: ArgocdInstance | None,
+        open_argocd_client: ArgocdClient,
+        deletable_app: str,
+        argocd_instance: ArgocdInstance,
         mock_ctx: MagicMock,
     ) -> None:
-        if open_argocd_client is None or deletable_app is None or argocd_instance is None:
-            pytest.skip("ArgoCD integration harness not available")
-
         from argocd_mcp import server
         from argocd_mcp.tools.destructive import delete_application
 
@@ -321,14 +295,11 @@ class TestSyncWithPruneIntegration:
 
     async def test_dry_run_no_confirmation_required(
         self,
-        open_argocd_client: ArgocdClient | None,
-        prunable_app: str | None,
-        argocd_instance: ArgocdInstance | None,
+        open_argocd_client: ArgocdClient,
+        prunable_app: str,
+        argocd_instance: ArgocdInstance,
         mock_ctx: MagicMock,
     ) -> None:
-        if open_argocd_client is None or prunable_app is None or argocd_instance is None:
-            pytest.skip("ArgoCD integration harness not available")
-
         from argocd_mcp import server
         from argocd_mcp.tools.destructive import sync_application_with_prune
 
@@ -350,14 +321,11 @@ class TestSyncWithPruneIntegration:
 
     async def test_live_blocks_without_confirmation(
         self,
-        open_argocd_client: ArgocdClient | None,
-        prunable_app: str | None,
-        argocd_instance: ArgocdInstance | None,
+        open_argocd_client: ArgocdClient,
+        prunable_app: str,
+        argocd_instance: ArgocdInstance,
         mock_ctx: MagicMock,
     ) -> None:
-        if open_argocd_client is None or prunable_app is None or argocd_instance is None:
-            pytest.skip("ArgoCD integration harness not available")
-
         from argocd_mcp import server
         from argocd_mcp.tools.destructive import sync_application_with_prune
 
@@ -381,14 +349,11 @@ class TestSyncWithPruneIntegration:
 
     async def test_live_with_confirmation_initiates_sync(
         self,
-        open_argocd_client: ArgocdClient | None,
-        prunable_app: str | None,
-        argocd_instance: ArgocdInstance | None,
+        open_argocd_client: ArgocdClient,
+        prunable_app: str,
+        argocd_instance: ArgocdInstance,
         mock_ctx: MagicMock,
     ) -> None:
-        if open_argocd_client is None or prunable_app is None or argocd_instance is None:
-            pytest.skip("ArgoCD integration harness not available")
-
         from argocd_mcp import server
         from argocd_mcp.tools.destructive import sync_application_with_prune
 

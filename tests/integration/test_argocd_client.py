@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from argocd_mcp.utils.client import Application, ArgocdClient, ArgocdError
-from tests.integration.conftest import _is_argocd_available, _kubectl_context
+from tests.integration.conftest import _kubectl_context
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -54,16 +54,12 @@ spec:
 
 
 @pytest.fixture(scope="module")
-def test_application(argocd_connection: tuple[str, str] | None) -> Iterator[str | None]:
+def test_application(argocd_connection: tuple[str, str]) -> Iterator[str]:
     """Create a test ArgoCD application and clean it up after tests.
 
     This fixture creates an nginx-based test application using kubectl,
     yields the application name, and cleans up after all tests complete.
     """
-    if argocd_connection is None:
-        yield None
-        return
-
     ctx = _kubectl_context()
 
     print(f"\nCreating test application: {TEST_APP_NAME}")
@@ -75,15 +71,14 @@ def test_application(argocd_connection: tuple[str, str] | None) -> Iterator[str 
             text=True,
             timeout=30,
         )
-        if result.returncode != 0:
-            print(f"Failed to create test application: {result.stderr}")
-            yield None
-            return
-        print(f"Test application created: {TEST_APP_NAME}")
     except subprocess.SubprocessError as e:
-        print(f"Error creating test application: {e}")
-        yield None
-        return
+        pytest.fail(f"Error creating test application {TEST_APP_NAME}: {e}", pytrace=False)
+    if result.returncode != 0:
+        pytest.fail(
+            f"Failed to create test application {TEST_APP_NAME}: {result.stderr}",
+            pytrace=False,
+        )
+    print(f"Test application created: {TEST_APP_NAME}")
 
     # Wait for application to be registered in ArgoCD
     time.sleep(3)
@@ -114,38 +109,25 @@ def test_application(argocd_connection: tuple[str, str] | None) -> Iterator[str 
             print(f"Warning: Failed to delete test application: {e}")
 
 
-# Skip marker for tests that require ArgoCD
-requires_argocd = pytest.mark.skipif(
-    not _is_argocd_available(),
-    reason="ArgoCD not available on Kind cluster",
-)
-
-
 @pytest.mark.integration
 class TestArgocdClientIntegration:
     """Integration tests for ArgoCD client against live ArgoCD."""
 
-    @requires_argocd
     async def test_client_connection(
         self,
-        argocd_instance: ArgocdInstance | None,
+        argocd_instance: ArgocdInstance,
     ):
         """Test that we can establish a connection to ArgoCD."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
 
         async with ArgocdClient(argocd_instance) as client:
             settings = await client.get_settings()
             assert isinstance(settings, dict)
 
-    @requires_argocd
     async def test_list_applications_empty_or_with_test(
         self,
-        argocd_instance: ArgocdInstance | None,
+        argocd_instance: ArgocdInstance,
     ):
         """Test listing applications from live ArgoCD."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
 
         async with ArgocdClient(argocd_instance) as client:
             apps = await client.list_applications()
@@ -155,17 +137,12 @@ class TestArgocdClientIntegration:
                 assert isinstance(app, Application)
                 assert app.name
 
-    @requires_argocd
     async def test_list_applications_with_test_app(
         self,
-        argocd_instance: ArgocdInstance | None,
-        test_application: str | None,
+        argocd_instance: ArgocdInstance,
+        test_application: str,
     ):
         """Test listing applications includes our test application."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
-        if test_application is None:
-            pytest.skip("Test application not created")
 
         async with ArgocdClient(argocd_instance) as client:
             apps = await client.list_applications()
@@ -175,17 +152,12 @@ class TestArgocdClientIntegration:
                 f"Test app '{test_application}' not found in {app_names}"
             )
 
-    @requires_argocd
     async def test_get_application(
         self,
-        argocd_instance: ArgocdInstance | None,
-        test_application: str | None,
+        argocd_instance: ArgocdInstance,
+        test_application: str,
     ):
         """Test getting a specific application by name."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
-        if test_application is None:
-            pytest.skip("Test application not created")
 
         async with ArgocdClient(argocd_instance) as client:
             app = await client.get_application(test_application)
@@ -197,18 +169,15 @@ class TestArgocdClientIntegration:
             assert app.path == "guestbook"
             assert app.destination_namespace == TEST_APP_DEST_NAMESPACE
 
-    @requires_argocd
     async def test_get_application_not_found(
         self,
-        argocd_instance: ArgocdInstance | None,
+        argocd_instance: ArgocdInstance,
     ):
         """Test getting a non-existent application raises an error.
 
         Note: ArgoCD returns 403 (permission denied) for non-existent apps
         as a security measure to prevent enumeration attacks.
         """
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
 
         async with ArgocdClient(argocd_instance) as client:
             with pytest.raises(ArgocdError) as exc_info:
@@ -217,17 +186,12 @@ class TestArgocdClientIntegration:
             # ArgoCD returns 403 or 404 for non-existent apps
             assert exc_info.value.code in (403, 404)
 
-    @requires_argocd
     async def test_get_application_diff(
         self,
-        argocd_instance: ArgocdInstance | None,
-        test_application: str | None,
+        argocd_instance: ArgocdInstance,
+        test_application: str,
     ):
         """Test getting application diff/managed-resources."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
-        if test_application is None:
-            pytest.skip("Test application not created")
 
         async with ArgocdClient(argocd_instance) as client:
             diff = await client.get_application_diff(test_application)
@@ -236,17 +200,12 @@ class TestArgocdClientIntegration:
             if "items" in diff:
                 assert isinstance(diff["items"], list)
 
-    @requires_argocd
     async def test_get_resource_tree(
         self,
-        argocd_instance: ArgocdInstance | None,
-        test_application: str | None,
+        argocd_instance: ArgocdInstance,
+        test_application: str,
     ):
         """Test getting application resource tree."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
-        if test_application is None:
-            pytest.skip("Test application not created")
 
         async with ArgocdClient(argocd_instance) as client:
             tree = await client.get_resource_tree(test_application)
@@ -254,17 +213,12 @@ class TestArgocdClientIntegration:
             assert isinstance(tree, dict)
             assert "nodes" in tree or "orphanedNodes" in tree
 
-    @requires_argocd
     async def test_sync_application_dry_run(
         self,
-        argocd_instance: ArgocdInstance | None,
-        test_application: str | None,
+        argocd_instance: ArgocdInstance,
+        test_application: str,
     ):
         """Test syncing application with dry_run=True."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
-        if test_application is None:
-            pytest.skip("Test application not created")
 
         async with ArgocdClient(argocd_instance) as client:
             result = await client.sync_application(
@@ -275,17 +229,12 @@ class TestArgocdClientIntegration:
 
             assert isinstance(result, dict)
 
-    @requires_argocd
     async def test_refresh_application(
         self,
-        argocd_instance: ArgocdInstance | None,
-        test_application: str | None,
+        argocd_instance: ArgocdInstance,
+        test_application: str,
     ):
         """Test refreshing application manifest from Git."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
-        if test_application is None:
-            pytest.skip("Test application not created")
 
         async with ArgocdClient(argocd_instance) as client:
             app = await client.refresh_application(test_application)
@@ -293,48 +242,35 @@ class TestArgocdClientIntegration:
             assert isinstance(app, Application)
             assert app.name == test_application
 
-    @requires_argocd
     async def test_get_application_history(
         self,
-        argocd_instance: ArgocdInstance | None,
-        test_application: str | None,
+        argocd_instance: ArgocdInstance,
+        test_application: str,
     ):
         """Test getting application deployment history."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
-        if test_application is None:
-            pytest.skip("Test application not created")
 
         async with ArgocdClient(argocd_instance) as client:
             history = await client.get_application_history(test_application)
 
             assert isinstance(history, list)
 
-    @requires_argocd
     async def test_get_application_events(
         self,
-        argocd_instance: ArgocdInstance | None,
-        test_application: str | None,
+        argocd_instance: ArgocdInstance,
+        test_application: str,
     ):
         """Test getting Kubernetes events for application."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
-        if test_application is None:
-            pytest.skip("Test application not created")
 
         async with ArgocdClient(argocd_instance) as client:
             events = await client.get_application_events(test_application)
 
             assert isinstance(events, list)
 
-    @requires_argocd
     async def test_list_clusters(
         self,
-        argocd_instance: ArgocdInstance | None,
+        argocd_instance: ArgocdInstance,
     ):
         """Test listing clusters from live ArgoCD."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
 
         async with ArgocdClient(argocd_instance) as client:
             clusters = await client.list_clusters()
@@ -347,14 +283,11 @@ class TestArgocdClientIntegration:
                 f"No in-cluster endpoint found in {cluster_servers}"
             )
 
-    @requires_argocd
     async def test_list_projects(
         self,
-        argocd_instance: ArgocdInstance | None,
+        argocd_instance: ArgocdInstance,
     ):
         """Test listing projects from live ArgoCD."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
 
         async with ArgocdClient(argocd_instance) as client:
             projects = await client.list_projects()
@@ -365,14 +298,11 @@ class TestArgocdClientIntegration:
             project_names = [p.get("metadata", {}).get("name", "") for p in projects]
             assert "default" in project_names, f"Default project not found in {project_names}"
 
-    @requires_argocd
     async def test_get_settings(
         self,
-        argocd_instance: ArgocdInstance | None,
+        argocd_instance: ArgocdInstance,
     ):
         """Test getting ArgoCD settings."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
 
         async with ArgocdClient(argocd_instance) as client:
             settings = await client.get_settings()
@@ -388,14 +318,11 @@ class TestArgocdClientErrorHandling:
     as a security measure to prevent enumeration attacks.
     """
 
-    @requires_argocd
     async def test_invalid_application_name(
         self,
-        argocd_instance: ArgocdInstance | None,
+        argocd_instance: ArgocdInstance,
     ):
         """Test that invalid application names return proper errors."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
 
         async with ArgocdClient(argocd_instance) as client:
             with pytest.raises(ArgocdError) as exc_info:
@@ -411,14 +338,11 @@ class TestArgocdClientErrorHandling:
                 or "permission denied" in (error.details or "").lower()
             )
 
-    @requires_argocd
     async def test_sync_nonexistent_app(
         self,
-        argocd_instance: ArgocdInstance | None,
+        argocd_instance: ArgocdInstance,
     ):
         """Test syncing a non-existent application."""
-        if argocd_instance is None:
-            pytest.skip("ArgoCD connection not available")
 
         async with ArgocdClient(argocd_instance) as client:
             with pytest.raises(ArgocdError) as exc_info:
