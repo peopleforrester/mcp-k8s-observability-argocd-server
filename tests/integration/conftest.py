@@ -1,5 +1,5 @@
 # ABOUTME: Shared pytest fixtures and helpers for integration tests
-# ABOUTME: Provides Kind/ArgoCD detection, port-forward, and connection setup
+# ABOUTME: Provides Kind/ArgoCD detection, port-forward, and connection setup; fails if absent
 
 """Shared pytest fixtures for the integration suite.
 
@@ -16,7 +16,7 @@ import signal
 import socket
 import subprocess
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 import pytest
 from pydantic import SecretStr
@@ -187,12 +187,23 @@ class PortForwardProcess:
                 self._process = None
 
 
+def _fail_missing_harness(reason: str) -> NoReturn:
+    """Fail the integration run loudly with a next step when the harness is missing."""
+    pytest.fail(
+        f"ArgoCD integration harness unavailable: {reason}. "
+        f"Integration tests need a Kind cluster with ArgoCD on kubectl context "
+        f"'{_kubectl_context()}' (override with TEST_K8S_CONTEXT). "
+        "Create it with ./scripts/setup-test-cluster.sh, then rerun "
+        "`uv run pytest -m integration`.",
+        pytrace=False,
+    )
+
+
 @pytest.fixture(scope="session")
-def argocd_port_forward() -> Iterator[int | None]:
+def argocd_port_forward() -> Iterator[int]:
     """Run kubectl port-forward against argocd-server for the session."""
     if not _is_argocd_available():
-        yield None
-        return
+        _fail_missing_harness("no running argocd-server pod found")
 
     local_port = 18080
     port_forward = PortForwardProcess(
@@ -204,8 +215,7 @@ def argocd_port_forward() -> Iterator[int | None]:
     )
 
     if not port_forward.start():
-        yield None
-        return
+        _fail_missing_harness(f"kubectl port-forward to localhost:{local_port} failed")
 
     print(f"\nPort-forward established: localhost:{local_port} -> argocd-server:443")
     try:
@@ -216,32 +226,24 @@ def argocd_port_forward() -> Iterator[int | None]:
 
 
 @pytest.fixture(scope="session")
-def argocd_connection(argocd_port_forward: int | None) -> tuple[str, str] | None:
-    """Resolve the ArgoCD (url, token) tuple, or None if unreachable."""
-    if argocd_port_forward is None:
-        return None
-
+def argocd_connection(argocd_port_forward: int) -> tuple[str, str]:
+    """Resolve the ArgoCD (url, token) tuple for the live cluster."""
     password = _get_argocd_password()
     if password is None:
-        print("Could not get ArgoCD admin password")
-        return None
+        _fail_missing_harness("could not read argocd-initial-admin-secret")
 
     url = f"https://localhost:{argocd_port_forward}"
     token = _get_argocd_token(url, "admin", password)
     if token is None:
-        print("Could not get ArgoCD API token")
-        return None
+        _fail_missing_harness(f"could not obtain an API token from {url}")
 
     print("\nArgoCD authentication successful, got API token")
     return (url, token)
 
 
 @pytest.fixture(scope="session")
-def argocd_instance(argocd_connection: tuple[str, str] | None) -> ArgocdInstance | None:
-    """Build an ArgocdInstance for the live cluster, or None if unavailable."""
-    if argocd_connection is None:
-        return None
-
+def argocd_instance(argocd_connection: tuple[str, str]) -> ArgocdInstance:
+    """Build an ArgocdInstance for the live cluster."""
     url, token = argocd_connection
     return ArgocdInstance(
         url=url,
